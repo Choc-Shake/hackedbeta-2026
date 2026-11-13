@@ -1,8 +1,6 @@
-// sensors.js — owns state.heading and state.locked.
+// js/sensors.js — owns state.heading, state.locked, state.started.
 // No buttons or display in here: the UI calls startSensors() and lockNorth().
-
-// Shared state object. Use the existing one if a teammate's file made it first.
-window.state = window.state || {};
+// Load order: js/state.js must be loaded BEFORE this file.
 
 // Raw readings, exposed only for debugging/test pages (not part of shared state).
 window.sensorDebug = { compass: null, gyro: null, accuracy: null, offset: null };
