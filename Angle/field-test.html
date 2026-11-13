@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Angle field test</title>
+  <style>
+    body { background: black; color: white; font-family: monospace; font-size: 18px;
+           padding: 16px; text-align: center; margin: 0; }
+    button, select { font-size: 18px; padding: 10px 16px; margin: 4px; }
+    #ring { width: 260px; height: 260px; margin: 20px auto; border: 4px solid #555;
+            border-radius: 50%; position: relative; }
+    #arrow { position: absolute; inset: 0; font-size: 90px; line-height: 252px; }
+    #info { white-space: pre; text-align: left; display: inline-block; }
+  </style>
+</head>
+<body>
+  <h2>Angle field test</h2>
+  <button id="start">Start</button>
+  <button id="lock">Lock north</button><br>
+  <label>Point at: <select id="pick"></select></label>
+
+  <!-- The arrow is rotated by state.relAngle: up = straight ahead -->
+  <div id="ring"><div id="arrow">⬆️</div></div>
+  <div id="info">tap Start (iPhone only)</div>
+
+  <!-- Real team files, in the plan's load order. distance.js isn't ready,
+       so this page picks the target itself (pretending to be Distance). -->
+  <script src="../js/state.js?v=1"></script>
+  <script src="../js/washrooms.js?v=1"></script>
+  <script src="../js/location.js?v=1"></script>
+  <script src="../js/sensors.js?v=1"></script>
+  <script src="../js/angle.js?v=1"></script>
+
+  <script>
+    const arrow = document.getElementById('arrow');
+    const info = document.getElementById('info');
+    const pick = document.getElementById('pick');
+
+    // Fill the dropdown with the washrooms from washrooms.js
+    WASHROOMS.forEach((w, i) => {
+      const opt = document.createElement('option');
+      opt.value = i;
+      opt.textContent = w.name;
+      pick.appendChild(opt);
+    });
+
+    // Pretend to be Distance: the target is whatever the dropdown says
+    state.target = WASHROOMS[0];
+    pick.addEventListener('change', () => { state.target = WASHROOMS[pick.value]; });
+
+    // Start must happen inside a tap (iPhone permission rule)
+    document.getElementById('start').addEventListener('click', async () => {
+      const ok = await startSensors();
+      startLocation();
+      if (!ok) info.textContent = 'sensor error: ' + state.sensorError;
+    });
+
+    document.getElementById('lock').addEventListener('click', () => {
+      if (!lockNorth()) info.textContent = 'tap Start first';
+    });
+
+    // Every frame: run Angle, then draw
+    function loop() {
+      updateAngle();
+      arrow.style.transform = 'rotate(' + state.relAngle + 'deg)';
+
+      if (state.started) {
+        const fmt = v => (v === null ? '–' : Math.round(v));
+        info.textContent =
+          'heading:  ' + fmt(state.heading) + (state.locked ? ' (locked)' : ' (compass)') +
+          '\nbearing:  ' + fmt(state.bearing) +
+          '\nrelAngle: ' + fmt(state.relAngle) +
+          '\nGPS ±:    ' + fmt(state.accuracy) + ' m' +
+          (state.locationError ? '\nlocation error: ' + state.locationError : '') +
+          (state.sensorError ? '\nsensor error: ' + state.sensorError : '');
+      }
+      requestAnimationFrame(loop);
+    }
+    loop();
+  </script>
+</body>
+</html>
