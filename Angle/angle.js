@@ -32,5 +32,5 @@ function updateAngle(){
     // Smoothing: every frame move 15% toward the target angle
     visualAngle += angleDiff(targetAngle, visualAngle) * 0.15;
     visualAngle = angleDiff(visualAngle, 0);   // keep it in -180..180
-    state.relAngle = shownAngle;
+    state.relAngle = visualAngle;
 }
