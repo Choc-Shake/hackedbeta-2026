@@ -51,6 +51,12 @@ as unreliable indoors and prompt the user to lock at the entrance.
 
 Not doing: screen wake lock (skipped).
 
+Shelved: auto-lock. A version that locked when compass accuracy, GPS accuracy and
+compass−gyro steadiness were all good was tried and reverted: indoors near windows it
+passed all checks while standing still and locked to the wrong north. Possible future fix:
+require the user to turn ~45° and check compass and gyro turn by the same amount.
+For now the user taps Lock north at the entrance.
+
 ## Notes
 - `sensorDebug` (global) holds raw compass/gyro/accuracy/offset for test pages only; not shared state.
 - Bump `?v=N` on script tags after changes; GitHub Pages caches JS for 10 minutes.
