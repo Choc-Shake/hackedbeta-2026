@@ -1,4 +1,4 @@
-// js/sensors.js — owns state.heading, state.locked, state.started.
+// js/sensors.js — owns state.heading, state.locked, state.tilted, state.started.
 // No buttons or display in here: the UI calls startSensors() and lockNorth().
 // Load order: js/state.js must be loaded BEFORE this file.
 
@@ -15,6 +15,10 @@ window.sensorDebug = { compass: null, gyro: null, accuracy: null, offset: null }
 // Difference between compass and gyro, set by lockNorth().
 // null = not locked yet, so heading falls back to the raw compass.
 let offset = null;
+
+// How far (degrees) the phone may tilt from flat before we warn.
+// Compass/gyro heading is most reliable with the screen facing up.
+const MAX_TILT = 25;
 
 // Keep any angle in the range 0-360 (handles negatives and >360).
 function wrap360(a) {
@@ -33,6 +37,10 @@ function onOrientation(e) {
   // Once locked, heading = gyro + offset (immune to steel indoors).
   state.heading = offset === null ? compass : wrap360(gyro + offset);
   state.locked = offset !== null;
+
+  // Tilt: beta = front/back tilt, gamma = left/right tilt. Both are ~0 when flat.
+  // Phone held upright or sideways makes heading unreliable, so tell the UI.
+  state.tilted = Math.abs(e.beta) > MAX_TILT || Math.abs(e.gamma) > MAX_TILT;
 
   sensorDebug.compass = compass;
   sensorDebug.gyro = gyro;
