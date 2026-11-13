@@ -10,6 +10,7 @@ Writes to the shared `state` object (from `js/state.js`):
 |---|---|
 | `state.heading` | Degrees clockwise from **true north**, 0–360, live. |
 | `state.locked` | `true` once `lockNorth()` was called; heading is then gyro-based and reliable indoors. |
+| `state.autoLocked` | `true` if the lock happened automatically, `false` if by `lockNorth()` or not yet. |
 | `state.started` | `true` after `startSensors()` succeeds. |
 | `state.sensorError` | `null`, `'unsupported'`, `'denied'`, `'nocompass'` or `'failed'`. |
 
@@ -41,9 +42,11 @@ as unreliable indoors and prompt the user to lock at the entrance.
 - `startSensors()` / `lockNorth()` API, no DOM inside `sensors.js`
 - Moved to `js/sensors.js`, uses shared `js/state.js` (added `locked: false` there)
 - Error handling via `state.sensorError`
+- Auto-lock: locks by itself when, for 2 s in a row, compass accuracy ≤ ±15°, **GPS
+  `state.accuracy` ≤ 15 m** (needs Location running — outdoors/doorway proxy), and the
+  compass−gyro gap wobbles ≤ 5°. Never auto-locks indoors; manual `lockNorth()` still works.
 
 ## Planned (in order)
-5. Auto-lock when compass accuracy is good (≤ ±15°)
 6. Drift handling: re-lock quietly when compass is good again
 7. Tilt warning ("hold phone flat") from `beta`/`gamma`
 8. Figure-8 calibration hint when accuracy is poor

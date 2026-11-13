@@ -8,13 +8,15 @@
   <button id="lock" style="font-size:24px; padding:12px 24px">Lock north</button>
   <div id="out" style="white-space:pre">tap start</div>
 
-<script src="../js/state.js?v=7"></script>
-<script src="../js/sensors.js?v=7"></script>
+<script src="../js/state.js?v=8"></script>
+<script src="../js/location.js?v=8"></script>
+<script src="../js/sensors.js?v=8"></script>
 <script>
   // Test page only: plays the role of the UI teammate's code.
   const out = document.getElementById('out');
 
   document.getElementById('start').addEventListener('click', async () => {
+    startLocation();   // auto-lock needs GPS accuracy from Location
     const ok = await startSensors();
     if (!ok) { out.textContent = 'error: ' + state.sensorError; return; }
 
@@ -24,8 +26,9 @@
       if (state.sensorError) { out.textContent = 'error: ' + state.sensorError; return; }
       out.textContent =
         'heading: ' + Math.round(state.heading) +
-        (state.locked ? '  (locked)' : '  (compass ±' + Math.round(d.accuracy) + ')') +
-        '\ncompass: ' + Math.round(d.compass) + '  gyro: ' + Math.round(d.gyro);
+        (state.locked ? (state.autoLocked ? '  (auto-locked)' : '  (locked)') : '  (compass ±' + Math.round(d.accuracy) + ')') +
+        '\ncompass: ' + Math.round(d.compass) + '  gyro: ' + Math.round(d.gyro) +
+        '\ngps: ' + (state.accuracy == null ? '-' : '±' + Math.round(state.accuracy) + ' m');
     }, 100);
   });
 
