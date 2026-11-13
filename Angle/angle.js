@@ -1,6 +1,6 @@
 //Angle : bearing + relative angle for the toilet icon 
 //Setup
-const D = Math.pi/180
+const D = Math.PI/180
 
 function bearingDeg(lat1, lon1, lat2, lon2){
 const φ1 = lat1*D, φ2 = lat2*D, Δλ = (lon2-lon1)*D;
