@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Crap Map – test</title>
+<style>
+  body { background: #000; color: #eee; font-family: system-ui, sans-serif; margin: 0; padding: 16px; }
+  h1 { font-size: 1.2rem; margin: 0 0 4px; }
+  #status { color: #aaa; margin-bottom: 12px; }
+  svg { width: 100%; max-width: 480px; aspect-ratio: 1; display: block; margin: 0 auto; background: #0d0d0d; border-radius: 12px; }
+  .row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #222; font-size: 1.1rem; }
+  .near { color: #7bd88f; font-weight: 600; }
+  .note { color: #777; font-size: .85rem; margin-top: 10px; }
+</style>
+</head>
+<body>
+  <h1>💩 Crap Map – test</h1>
+  <div id="status">Starting…</div>
+  <svg id="plot"></svg>
+  <div id="list"></div>
+  <p class="note">North is up. The faint circle is GPS accuracy.</p>
+
+<script src="js/state.js"></script>
+<script src="js/washrooms.js"></script>
+<script src="js/location.js"></script>
+<script>
+  // Turn lat/lon into metres east (x) and north (y) of a reference point
+  function toMetres(lat, lon, ref) {
+    return {
+      x: (lon - ref.lon) * 111320 * Math.cos(ref.lat * Math.PI / 180),
+      y: (lat - ref.lat) * 110540
+    };
+  }
+
+  function distanceM(lat1, lon1, lat2, lon2) {
+    const D = Math.PI / 180, R = 6371000;
+    const a = Math.sin((lat2 - lat1) * D / 2) ** 2 +
+      Math.cos(lat1 * D) * Math.cos(lat2 * D) * Math.sin((lon2 - lon1) * D / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(a));
+  }
+
+  function render() {
+    const haveYou = state.lat !== null;
+
+    // Status line
+    const status = document.getElementById('status');
+    if (state.locationError === 'denied') status.textContent = 'Location blocked. Allow it in your browser settings.';
+    else if (state.locationError === 'unsupported') status.textContent = 'This browser has no GPS.';
+    else if (!haveYou) status.textContent = 'Finding you…';
+    else status.textContent = `You: ${state.lat.toFixed(6)}, ${state.lon.toFixed(6)} (± ${Math.round(state.accuracy)} m)` +
+      (FAKE_POSITION ? ' – fake position' : '');
+
+    // Centre the plot on the middle of the two washrooms
+    const ref = {
+      lat: WASHROOMS.reduce((s, w) => s + w.lat, 0) / WASHROOMS.length,
+      lon: WASHROOMS.reduce((s, w) => s + w.lon, 0) / WASHROOMS.length
+    };
+    const pts = WASHROOMS.map(w => ({ ...toMetres(w.lat, w.lon, ref), w }));
+    const you = haveYou ? toMetres(state.lat, state.lon, ref) : null;
+
+    // Fit everything in view with some margin
+    let span = 20;
+    for (const p of pts) span = Math.max(span, Math.abs(p.x), Math.abs(p.y));
+    if (you) span = Math.max(span, Math.abs(you.x) + state.accuracy, Math.abs(you.y) + state.accuracy);
+    span *= 1.3;
+    const fs = span * 0.14;
+
+    let svg = `<svg xmlns="http://www.w3.org/2000/svg">`;
+    let inner = '';
+    for (const p of pts) {
+      inner += `<text x="${p.x}" y="${-p.y}" font-size="${fs}" text-anchor="middle" dominant-baseline="central">🚽</text>`;
+      inner += `<text x="${p.x}" y="${-p.y + fs * 0.9}" font-size="${fs * 0.35}" fill="#aaa" text-anchor="middle">${p.w.name}</text>`;
+    }
+    if (you) {
+      inner += `<circle cx="${you.x}" cy="${-you.y}" r="${state.accuracy}" fill="rgba(139,90,43,.2)" stroke="rgba(139,90,43,.6)" stroke-width="${span * 0.005}"/>`;
+      inner += `<text x="${you.x}" y="${-you.y}" font-size="${fs}" text-anchor="middle" dominant-baseline="central">💩</text>`;
+    }
+    // 10 m scale bar
+    inner += `<line x1="${-span * 0.9}" y1="${span * 0.9}" x2="${-span * 0.9 + 10}" y2="${span * 0.9}" stroke="#666" stroke-width="${span * 0.01}"/>`;
+    inner += `<text x="${-span * 0.9}" y="${span * 0.85}" font-size="${fs * 0.3}" fill="#666">10 m</text>`;
+
+    const plot = document.getElementById('plot');
+    plot.setAttribute('viewBox', `${-span} ${-span} ${span * 2} ${span * 2}`);
+    plot.innerHTML = inner;
+
+    // Distance list
+    const dists = WASHROOMS.map(w => haveYou ? distanceM(state.lat, state.lon, w.lat, w.lon) : null);
+    const nearest = haveYou ? dists.indexOf(Math.min(...dists)) : -1;
+    document.getElementById('list').innerHTML = WASHROOMS.map((w, i) =>
+      `<div class="row ${i === nearest ? 'near' : ''}"><span>🚽 ${w.name}</span><span>${dists[i] === null ? '–' : Math.round(dists[i]) + ' m'}</span></div>`
+    ).join('');
+  }
+
+  startLocation();
+  setInterval(render, 500);
+  render();
+</script>
+</body>
+</html>
