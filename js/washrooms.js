@@ -4,6 +4,6 @@
 // then paste the averaged line that test.html gives you.
 
 const WASHROOMS = [
-  { id: 'c1', name: 'Commons Main', lat: 53.525554, lon: -113.523313, floor: 1 },
-  { id: 'c2', name: 'Commons Hallway', lat: 53.525219, lon: -113.523547, floor: 1 }
+  { id: 'c1', name: 'Commons Main', lat: 53.525664, lon: -113.522977, floor: 1 },
+  { id: 'c2', name: 'Commons Hallway', lat: 53.525135, lon: -113.523494, floor: 1 }
 ];
