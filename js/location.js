@@ -8,8 +8,8 @@
 const FAKE_POSITION = null; // Main Coordinates in the University of Alberta Commons
 
 // ---- Settings ----
-const MAX_ACCURACY_M = 20;  // ignore readings worse than this (metres)
-const AVERAGE_OVER = 5;     // average the last N good readings
+const MAX_ACCURACY_M = 30;  // ignore readings worse than this (metres)
+const AVERAGE_OVER = 2;     // average the last N good readings
 const RETRY_MS = 2000;      // wait before retrying after a timeout
 
 // UI reads this: null = fine, 'denied' = location blocked, 'unsupported' = no GPS in browser
@@ -70,8 +70,11 @@ function onPos(pos) {
   if (goodReadings.length > AVERAGE_OVER) goodReadings.shift();
 
   const n = goodReadings.length;
-  state.lat = goodReadings.reduce((sum, r) => sum + r.lat, 0) / n;
-  state.lon = goodReadings.reduce((sum, r) => sum + r.lon, 0) / n;
+  // Trust precise readings more: weight = 1 / accuracy²
+  const weights = goodReadings.map(r => 1 / Math.max(r.accuracy, 1) ** 2);
+  const totalWeight = weights.reduce((sum, w) => sum + w, 0);
+  state.lat = goodReadings.reduce((sum, r, i) => sum + r.lat * weights[i], 0) / totalWeight;
+  state.lon = goodReadings.reduce((sum, r, i) => sum + r.lon * weights[i], 0) / totalWeight;
   state.accuracy = goodReadings.reduce((sum, r) => sum + r.accuracy, 0) / n;
   notifyNewPosition();
 }
