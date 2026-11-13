@@ -10,6 +10,7 @@ Writes to the shared `state` object (from `js/state.js`):
 |---|---|
 | `state.heading` | Degrees clockwise from **true north**, 0–360, live. |
 | `state.locked` | `true` once `lockNorth()` was called; heading is then gyro-based and reliable indoors. |
+| `state.tilted` | `true` when the phone is tilted more than 25° from flat; UI should say "hold your phone flat". |
 | `state.started` | `true` after `startSensors()` succeeds. |
 | `state.sensorError` | `null`, `'unsupported'`, `'denied'`, `'nocompass'` or `'failed'`. |
 
@@ -41,16 +42,21 @@ as unreliable indoors and prompt the user to lock at the entrance.
 - `startSensors()` / `lockNorth()` API, no DOM inside `sensors.js`
 - Moved to `js/sensors.js`, uses shared `js/state.js` (added `locked: false` there)
 - Error handling via `state.sensorError`
+- Tilt warning via `state.tilted` (from `beta`/`gamma`, limit 25°)
 
 ## Planned (in order)
 5. Auto-lock when compass accuracy is good (≤ ±15°)
 6. Drift handling: re-lock quietly when compass is good again
-7. Tilt warning ("hold phone flat") from `beta`/`gamma`
 8. Figure-8 calibration hint when accuracy is poor
 9. Confirm true vs magnetic north (Edmonton declination ≈ 13° E)
 
 Not doing: screen wake lock (skipped).
 
+Shelved: auto-lock. A version that locked when compass accuracy, GPS accuracy and
+compass−gyro steadiness were all good was tried and reverted: indoors near windows it
+passed all checks while standing still and locked to the wrong north. Possible future fix:
+require the user to turn ~45° and check compass and gyro turn by the same amount.
+For now the user taps Lock north at the entrance.
 ## Notes
 - `sensorDebug` (global) holds raw compass/gyro/accuracy/offset for test pages only; not shared state.
 - Bump `?v=N` on script tags after changes; GitHub Pages caches JS for 10 minutes.
