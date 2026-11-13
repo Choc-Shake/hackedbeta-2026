@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Angle tests</title>
+</head>
+<body style="background:black; color:white; font-family:monospace; font-size:18px; padding:20px">
+  <h2>Angle tests</h2>
+  <div id="out"></div>
+
+  <!-- 1. Fake state (until Distance pushes the real state.js) -->
+  <script>
+    const state = {
+      lat: null, lon: null, accuracy: null,
+      heading: 0,
+      target: null,
+      bearing: null,
+      relAngle: 0
+    };
+  </script>
+
+  <!-- 2. Load the file we're testing -->
+  <script src="angle.js"></script>
+
+  <!-- 3. The tests -->
+  <script>
+    const out = document.getElementById('out');
+
+    // Prints PASS (green) or FAIL (red). "Close enough" = within 0.5°,
+    // because real math gives 89.9996 instead of exactly 90.
+    function check(name, actual, expected) {
+      const pass = Math.abs(actual - expected) < 0.5;
+      const line = document.createElement('div');
+      line.style.color = pass ? 'lime' : 'red';
+      line.textContent = (pass ? 'PASS ' : 'FAIL ') + name +
+        ' → got ' + actual.toFixed(2) + ', expected ' + expected;
+      out.appendChild(line);
+    }
+
+    // A starting point (roughly U of A). 0.001° ≈ 111 m north–south.
+    const lat = 53.5233, lon = -113.5262;
+
+    // --- bearingDeg ---
+    check('north', bearingDeg(lat, lon, lat + 0.001, lon), 0);
+    check('east',  bearingDeg(lat, lon, lat, lon + 0.001), 90);
+    check('south', bearingDeg(lat, lon, lat - 0.001, lon), 180);
+    check('west',  bearingDeg(lat, lon, lat, lon - 0.001), 270);
+
+    // --- angleDiff ---
+    check('angleDiff(10, 350)', angleDiff(10, 350), 20);
+    check('angleDiff(350, 10)', angleDiff(350, 10), -20);
+    check('angleDiff(90, 0)',   angleDiff(90, 0), 90);
+    check('angleDiff(0, 270)',  angleDiff(0, 270), 90);
+
+    // --- updateAngle ---
+    // Washroom is NORTH of you, you're FACING EAST → it should be on your LEFT (-90).
+    state.lat = lat;
+    state.lon = lon;
+    state.target = { lat: lat + 0.001, lon: lon };
+    state.heading = 90;
+    for (let i = 0; i < 100; i++) updateAngle();   // let the smoothing settle
+    check('updateAngle: north target, facing east', state.relAngle, -90);
+
+    // Now face NORTH → it should be straight ahead (0).
+    state.heading = 0;
+    for (let i = 0; i < 100; i++) updateAngle();
+    check('updateAngle: north target, facing north', state.relAngle, 0);
+  </script>
+</body>
+</html>
