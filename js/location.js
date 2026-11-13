@@ -3,14 +3,13 @@
 // Called by Sensors: startLocation() inside the Start button tap.
 
 // ---- Desk testing ----
-// Set to { lat: 53.5268, lon: -113.5290 } (any real point) to skip GPS at a table.
-// MUST be null before the demo.
-const FAKE_POSITION = { lat:53.525325, lon: -113.523570 }; // Main Coordinates in the University of Alberta Commons
+// This part is to check the 
+const FAKE_POSITION = null; // Main Coordinates in the University of Alberta Commons
 
 // ---- Settings ----
 const MAX_ACCURACY_M = 20;  // ignore readings worse than this (metres)
 const AVERAGE_OVER = 5;     // average the last N good readings
-const RETRY_MS = 2000;      // wait before retrying after a timeout
+const RETRY_MS = 1000;      // wait before retrying after a timeout
 
 // UI reads this: null = fine, 'denied' = location blocked, 'unsupported' = no GPS in browser
 state.locationError = null;
