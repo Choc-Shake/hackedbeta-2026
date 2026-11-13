@@ -12,7 +12,8 @@ window.state = window.state || {};
       if (answer === 'granted') {
         window.addEventListener('deviceorientation', (e) => {
             state.heading = e.webkitCompassHeading;
-          out.textContent = 'heading: ' + Math.round(state.heading);
+            out.textContent = 'heading: ' + Math.round(state.heading) +
+                  '  ±' + Math.round(e.webkitCompassAccuracy);
         });
       }
     });
