@@ -1,4 +1,4 @@
-# Sensors — status for teammates (and their AI assistants)
+# Sensors — status for teammates
 
 Owner: Ishaan (Sensors). Code: `js/sensors.js`. Test page: `Sensors/sensor-test.html`.
 iPhone Safari only for now.
