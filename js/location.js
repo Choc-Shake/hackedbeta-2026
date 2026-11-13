@@ -5,7 +5,7 @@
 // ---- Desk testing ----
 // Set to { lat: 53.5268, lon: -113.5290 } (any real point) to skip GPS at a table.
 // MUST be null before the demo.
-const FAKE_POSITION = { lat:53.525325, lon: -113.523570 }; // Main Coordinates in the University of Alberta Commons
+const FAKE_POSITION = null; // Main Coordinates in the University of Alberta Commons
 
 // ---- Settings ----
 const MAX_ACCURACY_M = 20;  // ignore readings worse than this (metres)
