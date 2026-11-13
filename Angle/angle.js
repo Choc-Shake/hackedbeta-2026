@@ -1,0 +1,1 @@
+//Angle : bearing + relative angle for the toilet icon 
