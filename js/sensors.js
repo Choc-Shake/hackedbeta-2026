@@ -19,7 +19,6 @@ let offset = null;
 // How far (degrees) the phone may tilt from flat before we warn.
 // Compass/gyro heading is most reliable with the screen facing up.
 const MAX_TILT = 25;
-
 // Keep any angle in the range 0-360 (handles negatives and >360).
 function wrap360(a) {
   return ((a % 360) + 360) % 360;
@@ -41,7 +40,6 @@ function onOrientation(e) {
   // Tilt: beta = front/back tilt, gamma = left/right tilt. Both are ~0 when flat.
   // Phone held upright or sideways makes heading unreliable, so tell the UI.
   state.tilted = Math.abs(e.beta) > MAX_TILT || Math.abs(e.gamma) > MAX_TILT;
-
   sensorDebug.compass = compass;
   sensorDebug.gyro = gyro;
   sensorDebug.accuracy = e.webkitCompassAccuracy;

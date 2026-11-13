@@ -1,4 +1,4 @@
-# Sensors — status for teammates
+# Sensors — status for teammates (and their AI assistants)
 
 Owner: Ishaan (Sensors). Code: `js/sensors.js`. Test page: `Sensors/sensor-test.html`.
 iPhone Safari only for now.
@@ -57,7 +57,6 @@ compass−gyro steadiness were all good was tried and reverted: indoors near win
 passed all checks while standing still and locked to the wrong north. Possible future fix:
 require the user to turn ~45° and check compass and gyro turn by the same amount.
 For now the user taps Lock north at the entrance.
-
 ## Notes
 - `sensorDebug` (global) holds raw compass/gyro/accuracy/offset for test pages only; not shared state.
 - Bump `?v=N` on script tags after changes; GitHub Pages caches JS for 10 minutes.
