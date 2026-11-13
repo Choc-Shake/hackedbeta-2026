@@ -1,16 +1,14 @@
+// sensors.js — owns state.heading and state.locked.
+// No buttons or display in here: the UI calls startSensors() and lockNorth().
+
 // Shared state object. Use the existing one if a teammate's file made it first.
 window.state = window.state || {};
 
-const out = document.getElementById('out');
-const startBtn = document.getElementById('start');
-const lockBtn = document.getElementById('lock');
+// Raw readings, exposed only for debugging/test pages (not part of shared state).
+window.sensorDebug = { compass: null, gyro: null, accuracy: null, offset: null };
 
-// Latest raw readings, so the Lock button can use them.
-let compass = null;   // magnetometer heading (true north, but bent indoors)
-let gyro = null;      // gyroscope heading (steady indoors, random zero)
-
-// Difference between compass and gyro, measured when you tap Lock.
-// null = not locked yet, so we fall back to the raw compass.
+// Difference between compass and gyro, set by lockNorth().
+// null = not locked yet, so heading falls back to the raw compass.
 let offset = null;
 
 // Keep any angle in the range 0-360 (handles negatives and >360).
@@ -18,35 +16,38 @@ function wrap360(a) {
   return ((a % 360) + 360) % 360;
 }
 
-startBtn.addEventListener('click', async () => {
-  // iOS only allows motion/compass access after a tap, so ask here.
+// Runs on every sensor update.
+function onOrientation(e) {
+  const compass = e.webkitCompassHeading;   // magnetometer: true north, bent indoors
+  const gyro = 360 - e.alpha;               // gyroscope: steady indoors, random zero
+                                            // (alpha is anticlockwise, so flip it)
+
+  // Once locked, heading = gyro + offset (immune to steel indoors).
+  state.heading = offset === null ? compass : wrap360(gyro + offset);
+  state.locked = offset !== null;
+
+  sensorDebug.compass = compass;
+  sensorDebug.gyro = gyro;
+  sensorDebug.accuracy = e.webkitCompassAccuracy;
+  sensorDebug.offset = offset;
+}
+
+// Call from the Start button's click handler (iOS only asks for permission
+// after a tap). Returns a promise: true if sensors started, false if not.
+async function startSensors() {
   const answer = await DeviceOrientationEvent.requestPermission();
-  out.textContent = 'permission: ' + answer;
+  if (answer !== 'granted') return false;
 
-  if (answer === 'granted') {
-    window.addEventListener('deviceorientation', (e) => {
-      compass = e.webkitCompassHeading;
+  window.addEventListener('deviceorientation', onOrientation);
+  state.started = true;
+  return true;
+}
 
-      // alpha grows anticlockwise, so 360 - alpha makes it clockwise like a compass.
-      gyro = 360 - e.alpha;
-
-      // Once locked, heading = gyro + offset (immune to steel indoors).
-      // Before locking, just use the compass.
-      state.heading = offset === null ? compass : wrap360(gyro + offset);
-      state.locked = offset !== null;
-
-      out.textContent = 'heading: ' + Math.round(state.heading) +
-                        (state.locked ? '  (locked)' : '  (compass ±' + Math.round(e.webkitCompassAccuracy) + ')') +
-                        '\ncompass: ' + Math.round(compass) +
-                        '  gyro: ' + Math.round(gyro);
-    });
-  }
-});
-
-// Tap this where the compass is accurate (outside or at the entrance).
-// It records how far apart compass and gyro are right now; after that,
-// gyro + offset gives true heading without needing the magnetometer.
-lockBtn.addEventListener('click', () => {
-  if (compass === null) return;   // no readings yet, tap Start first
-  offset = compass - gyro;
-});
+// Call where the compass is accurate (outside or at the entrance).
+// Records the compass-gyro gap; after that heading no longer needs the magnetometer.
+// Returns true if it locked, false if there were no readings yet.
+function lockNorth() {
+  if (sensorDebug.compass === null) return false;
+  offset = sensorDebug.compass - sensorDebug.gyro;
+  return true;
+}
