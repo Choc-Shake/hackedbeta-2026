@@ -1,8 +1,13 @@
-// sensors.js — owns state.heading and state.locked.
+// js/sensors.js — owns state.heading, state.locked, state.started.
 // No buttons or display in here: the UI calls startSensors() and lockNorth().
+// Load order: js/state.js must be loaded BEFORE this file.
 
-// Shared state object. Use the existing one if a teammate's file made it first.
-window.state = window.state || {};
+// Sensor problems for the UI to show (null = fine). Same idea as state.locationError:
+//   'unsupported' - not an iPhone/Safari with motion access (e.g. desktop, Android)
+//   'denied'      - user tapped Don't Allow (fix: close Safari tab and reopen)
+//   'nocompass'   - started, but no compass readings arrived within 3 seconds
+//   'failed'      - permission request threw (e.g. not called from a tap, or not HTTPS)
+state.sensorError = null;
 
 // Raw readings, exposed only for debugging/test pages (not part of shared state).
 window.sensorDebug = { compass: null, gyro: null, accuracy: null, offset: null };
@@ -18,6 +23,9 @@ function wrap360(a) {
 
 // Runs on every sensor update.
 function onOrientation(e) {
+  // Ignore events with no compass/gyro data, so heading never becomes NaN.
+  if (e.webkitCompassHeading == null || e.alpha == null) return;
+
   const compass = e.webkitCompassHeading;   // magnetometer: true north, bent indoors
   const gyro = 360 - e.alpha;               // gyroscope: steady indoors, random zero
                                             // (alpha is anticlockwise, so flip it)
@@ -35,11 +43,36 @@ function onOrientation(e) {
 // Call from the Start button's click handler (iOS only asks for permission
 // after a tap). Returns a promise: true if sensors started, false if not.
 async function startSensors() {
-  const answer = await DeviceOrientationEvent.requestPermission();
-  if (answer !== 'granted') return false;
+  if (state.started) return true;   // already running; don't add a second listener
+  state.sensorError = null;
+
+  // iOS 13+ Safari has requestPermission; anything else isn't supported (iPhone only for now).
+  if (typeof DeviceOrientationEvent === 'undefined' ||
+      typeof DeviceOrientationEvent.requestPermission !== 'function') {
+    state.sensorError = 'unsupported';
+    return false;
+  }
+
+  let answer;
+  try {
+    answer = await DeviceOrientationEvent.requestPermission();
+  } catch (err) {
+    state.sensorError = 'failed';
+    return false;
+  }
+  if (answer !== 'granted') {
+    state.sensorError = 'denied';
+    return false;
+  }
 
   window.addEventListener('deviceorientation', onOrientation);
   state.started = true;
+
+  // If no compass reading shows up soon, flag it (sensor broken or blocked).
+  setTimeout(() => {
+    if (sensorDebug.compass === null) state.sensorError = 'nocompass';
+  }, 3000);
+
   return true;
 }
 
