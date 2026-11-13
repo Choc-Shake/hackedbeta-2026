@@ -1,3 +1,7 @@
+window.state = window.state || {};
+
+
+
     const out = document.getElementById('out');
     const startBtn = document.getElementById('start');
 
@@ -7,7 +11,8 @@
 
       if (answer === 'granted') {
         window.addEventListener('deviceorientation', (e) => {
-          out.textContent = 'heading: ' + Math.round(e.webkitCompassHeading);
+            state.heading = e.webkitCompassHeading;
+          out.textContent = 'heading: ' + Math.round(state.heading);
         });
       }
     });
