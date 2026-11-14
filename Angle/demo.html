@@ -11,7 +11,7 @@
     background: #05140b; color: #e8ffe9; text-align: center;
     font-family: system-ui, -apple-system, sans-serif;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    min-height: 100dvh; padding: 16px; overflow: hidden;
+    min-height: 100dvh; padding: 16px; overflow-x: hidden;
   }
   h1 { margin: 0 0 4px; font-size: 2.2rem; letter-spacing: .02em; }
   .sub { color: #8fbf98; margin: 0 0 20px; }
@@ -90,19 +90,39 @@
   #pick { font: inherit; font-size: 1rem; padding: 10px 14px; border-radius: 12px; border: 0;
           background: #12301c; color: #e8ffe9; margin: 6px 0 2px; max-width: 90vw; }
   #aheadLabel { font-size: 12px; font-weight: 700; color: #bfe8c6; letter-spacing: .06em; margin: 8px 0 -6px; }
-  #debug { margin-top: 12px; font: 12px ui-monospace, monospace; color: #6f9c78; white-space: pre; text-align: left; }
+  #debug { margin: 12px auto 0; font: 11px ui-monospace, monospace; color: #8fbf98; white-space: pre-wrap; text-align: left; max-width: 92vw; }
+  #compassScreen { width: 100%; }
+  .card { max-width: 360px; margin: 0 auto; }
+  .card p { color: #bfe8c6; line-height: 1.45; }
+  .big2 { font-size: 3rem; font-weight: 800; color: #3ddc6b; margin: 6px 0; }
+  .stack { display: flex; flex-direction: column; gap: 10px; align-items: center; margin-top: 14px; }
+  .ghost.on { background: #ffd166; color: #05140b; }
 </style>
 </head>
 <body>
 
-  <!-- ===== Start screen ===== -->
+  <!-- ===== 1. Start screen ===== -->
   <section id="startScreen">
     <h1>💩 CrapMap</h1>
     <p class="sub">Points you to the nearest washroom</p>
     <button id="start" class="primary">💩 Start</button>
   </section>
 
-  <!-- ===== Compass screen ===== -->
+  <!-- ===== 2. Lock north screen (must be done before the radar) ===== -->
+  <section id="lockScreen" class="hidden card">
+    <h1>🧭 Lock north</h1>
+    <p>Hold your phone <b>flat</b>, screen up. The compass gets thrown off by steel indoors,
+       so lock it once, then the gyroscope keeps track of your turns.</p>
+    <div>Compass says</div>
+    <div class="big2" id="liveCompass">–</div>
+    <div id="lockHint" style="color:#ffd166; min-height:1.3em"></div>
+    <div class="stack">
+      <button id="lockCompass" class="primary">Lock using compass<br><small>(near a window / outside)</small></button>
+      <button id="lockManual" class="ghost">I'm pointing my phone north → set it</button>
+    </div>
+  </section>
+
+  <!-- ===== 3. Radar screen ===== -->
   <section id="compassScreen" class="hidden">
     <select id="pick"></select>
     <div id="aheadLabel">LINE THE 🚽 UP HERE ▼</div>
@@ -118,13 +138,14 @@
     <div id="acc"></div>
     <div id="hint"></div>
     <div class="row">
-      <button id="lock" class="ghost">🧭 Lock north</button>
+      <button id="relock" class="ghost">🧭 Re-lock north</button>
+      <button id="freeze" class="ghost">📍 Freeze GPS</button>
       <button id="debugBtn" class="ghost">Numbers</button>
     </div>
     <div id="debug" class="hidden"></div>
   </section>
 
-  <!-- ===== Arrived overlay ===== -->
+  <!-- ===== 4. Arrived overlay ===== -->
   <section id="arrived" class="hidden">
     <div class="emoji">🧻</div>
     <h2>You have arrived</h2>
@@ -133,194 +154,198 @@
   </section>
 
   <!-- Team files in the plan's load order (?v= stops the phone using an old cached copy) -->
-  <script src="../js/state.js?v=3"></script>
-  <script src="../js/washrooms.js?v=3"></script>
-  <script src="../js/location.js?v=3"></script>
-  <script src="../js/sensors.js?v=3"></script>
-  <script src="../js/angle.js?v=3"></script>
+  <script src="../js/state.js?v=4"></script>
+  <script src="../js/washrooms.js?v=4"></script>
+  <script src="../js/location.js?v=4"></script>
+  <script src="../js/sensors.js?v=4"></script>
+  <script src="../js/angle.js?v=4"></script>
 
   <script>
-    // ============================================================
-    // DEMO ONLY: stand-ins for parts of the app that aren't in the repo yet.
-    // When js/distance.js exists, its updateDistance() is used instead.
-    // ============================================================
-    const RADAR_RANGE_M = 60;
-    let skipWashroom = null;   // set by "Find another"   // 60 m or more = 🚽 sits on the edge of the radar
+    // =================================================================
+    // DEMO PAGE. Uses the team's files (state, washrooms, location,
+    // sensors, angle). Stand-ins below cover what isn't in the repo yet.
+    // =================================================================
+    const $ = (id) => document.getElementById(id);
+    const demoWrap360 = (a) => ((a % 360) + 360) % 360;
+    const RADAR_RANGE_M = 60;       // accuracy circle scale: 60 m = edge of radar
+    const GPS_SMOOTHING = 0.2;      // move 20% toward each new GPS reading
+    const GPS_MAX_ACCURACY = 35;    // ignore readings worse than this once we have a fix
 
+    // ---------- Screens ----------
+    function show(id) {
+      for (const s of ['startScreen', 'lockScreen', 'compassScreen']) $(s).classList.add('hidden');
+      $(id).classList.remove('hidden');
+    }
+
+    // ---------- Sensors: compass + gyro for both phones ----------
+    // iPhone: sensors.js keeps sensorDebug.compass / sensorDebug.gyro up to date.
+    // Android: Chrome gives the compass in 'deviceorientationabsolute' and the
+    //          gyro in plain 'deviceorientation', read here.
+    const isAndroid = 'ondeviceorientationabsolute' in window;   // iPhone Safari doesn't have it
+    const android = { compass: null, gyro: null, compassEvents: 0, gyroEvents: 0 };
+    let northOffset = null;   // set by Lock north: heading = gyro + northOffset
+
+    function startAndroidSensors() {
+      window.addEventListener('deviceorientationabsolute', (e) => {
+        if (e.alpha === null) return;
+        android.compassEvents++;
+        android.compass = demoWrap360(360 - e.alpha);
+        state.tilted = Math.abs(e.beta) > 35 || Math.abs(e.gamma) > 35;
+      });
+      window.addEventListener('deviceorientation', (e) => {
+        if (e.alpha === null || e.absolute) return;   // only the gyro-based (relative) one
+        android.gyroEvents++;
+        android.gyro = demoWrap360(360 - e.alpha);
+      });
+      state.started = true;
+    }
+
+    const compassNow = () => (isAndroid ? android.compass : sensorDebug.compass);
+    const gyroNow = () => (isAndroid ? android.gyro : sensorDebug.gyro);
+
+    function lockNorthWith(direction) {   // direction = which way the phone points right now
+      const gyro = gyroNow();
+      if (gyro === null || direction === null) return false;
+      northOffset = direction - gyro;
+      return true;
+    }
+
+    function updateHeading() {
+      const gyro = gyroNow();
+      if (northOffset !== null && gyro !== null) {
+        state.heading = demoWrap360(gyro + northOffset);
+        state.locked = true;
+      }
+    }
+
+    // ---------- GPS smoothing ----------
+    // location.js writes every raw reading into state.lat/lon. Indoors those jump
+    // around by 10-30 m, which swings the direction to a washroom 40 m away.
+    // Here we average them, drop bad ones, and can freeze the position entirely.
+    let smooth = null;
+    let gpsFrozen = false;
+    function smoothGPS() {
+      if (state.lat === null) return;
+      const isNewReading = !smooth || state.lat !== smooth.lat || state.lon !== smooth.lon;
+      if (!isNewReading) return;
+      if (smooth && (gpsFrozen || (state.accuracy || 0) > GPS_MAX_ACCURACY)) {
+        state.lat = smooth.lat; state.lon = smooth.lon;            // ignore this reading
+        return;
+      }
+      if (!smooth) smooth = { lat: state.lat, lon: state.lon };
+      else {
+        smooth.lat += (state.lat - smooth.lat) * GPS_SMOOTHING;
+        smooth.lon += (state.lon - smooth.lon) * GPS_SMOOTHING;
+      }
+      state.lat = smooth.lat; state.lon = smooth.lon;
+    }
+
+    // ---------- Distance stand-in (until js/distance.js exists) ----------
     function demoDistanceM(lat1, lon1, lat2, lon2) {   // haversine
       const R = 6371000, r = Math.PI / 180;
       const a = Math.sin((lat2 - lat1) * r / 2) ** 2 +
         Math.cos(lat1 * r) * Math.cos(lat2 * r) * Math.sin((lon2 - lon1) * r / 2) ** 2;
       return 2 * R * Math.asin(Math.sqrt(a));
     }
-
-    // Washroom picker: 'auto' = nearest, otherwise an index into WASHROOMS (from js/washrooms.js)
-    let choice = 'auto';
-
+    let choice = 'auto';          // 'auto' = nearest, or an index into WASHROOMS
+    let skipWashroom = null;      // set by "Find another"
     function demoUpdateDistance() {
       if (state.lat === null) return;
-      if (choice !== 'auto') {                       // a specific washroom was chosen
-        state.target = WASHROOMS[choice];
-        state.distance = demoDistanceM(state.lat, state.lon, state.target.lat, state.target.lon);
-        if (state.distance < Math.max(15, (state.accuracy || 0) * 0.8)) state.arrived = true;
-        return;
-      }
-      // nearest washroom, with hysteresis: only switch if another is >10 m closer
       let best = null, bestD = Infinity;
-      for (const w of WASHROOMS) {
-        if (w === skipWashroom && WASHROOMS.length > 1) continue;   // "Find another" skips the last one
-        const d = demoDistanceM(state.lat, state.lon, w.lat, w.lon);
-        if (d < bestD) { best = w; bestD = d; }
-      }
-      if (state.target) {
-        const curD = demoDistanceM(state.lat, state.lon, state.target.lat, state.target.lon);
-        if (best !== state.target && curD - bestD < 10) { best = state.target; bestD = curD; }
+      if (choice !== 'auto') {
+        best = WASHROOMS[choice];
+        bestD = demoDistanceM(state.lat, state.lon, best.lat, best.lon);
+      } else {
+        for (const w of WASHROOMS) {
+          if (w === skipWashroom && WASHROOMS.length > 1) continue;
+          const d = demoDistanceM(state.lat, state.lon, w.lat, w.lon);
+          if (d < bestD) { best = w; bestD = d; }
+        }
+        if (state.target && state.target !== best && state.target !== skipWashroom) {   // hysteresis
+          const curD = demoDistanceM(state.lat, state.lon, state.target.lat, state.target.lon);
+          if (curD - bestD < 10) { best = state.target; bestD = curD; }
+        }
       }
       state.target = best;
       state.distance = bestD;
-      // arrive (latched until "Find another")
-      if (bestD < Math.max(15, (state.accuracy || 0) * 0.8)) state.arrived = true;
+      if (bestD < Math.max(15, (state.accuracy || 0) * 0.8)) state.arrived = true;   // latched
     }
 
-    // Android: sensors.js is iPhone-only for now, so read the compass here.
-    // Same idea as Sensors' iPhone code: the compass (magnetometer) gives true direction but
-    // gets bent by steel indoors; the gyroscope is steady indoors but starts at a random zero.
-    // "Lock north" records the gap between them once, where the compass is good.
-    let androidCompass = false;
-    const android = { compass: null, gyro: null, offset: null, compassEvents: 0, gyroEvents: 0, startedAt: 0 };
-    const demoWrap360 = (a) => ((a % 360) + 360) % 360;
+    // ---------- Buttons ----------
+    $('start').addEventListener('click', async () => {
+      await startSensors();               // iPhone permission (must be inside the tap)
+      if (isAndroid) startAndroidSensors();
+      startLocation();
+      if ('wakeLock' in navigator) navigator.wakeLock.request('screen').catch(() => {});
+      show('lockScreen');
+      requestAnimationFrame(loop);
+    });
 
-    function androidHeading() {
-      if (android.offset !== null && android.gyro !== null) {
-        state.heading = demoWrap360(android.gyro + android.offset);   // locked: gyro + offset
-        state.locked = true;
-      } else if (android.compass !== null) {
-        state.heading = android.compass;                          // not locked: raw compass
-        state.locked = false;
-      }
-    }
-
-    function startAndroidCompass() {
-      // Compass: absolute orientation (relative to the Earth)
-      window.addEventListener('deviceorientationabsolute', (e) => {
-        if (e.alpha === null) return;
-        android.compassEvents++;
-        android.compass = demoWrap360(360 - e.alpha);
-        state.tilted = Math.abs(e.beta) > 35 || Math.abs(e.gamma) > 35;
-        androidHeading();
-      });
-      // Gyro: on Chrome Android, plain 'deviceorientation' is relative (gyro-based)
-      window.addEventListener('deviceorientation', (e) => {
-        if (e.alpha === null) return;
-        if (e.absolute) {                       // some phones send the compass here instead
-          if (android.compassEvents === 0) { android.compass = demoWrap360(360 - e.alpha); androidHeading(); }
-          return;
-        }
-        android.gyroEvents++;
-        android.gyro = demoWrap360(360 - e.alpha);
-        androidHeading();
-      });
-      androidCompass = true;
-      android.startedAt = performance.now();
-      state.sensorError = null;
-      state.started = true;
-    }
-
-    function androidLockNorth() {
-      if (android.compass === null || android.gyro === null) return false;
-      android.offset = android.compass - android.gyro;
-      androidHeading();
-      return true;
-    }
-
-    // Keep the screen awake during the demo (ignored if unsupported)
-    async function keepAwake() {
-      try { if ('wakeLock' in navigator) await navigator.wakeLock.request('screen'); } catch (e) {}
-    }
-
-    // ============================================================
-    // UI
-    // ============================================================
-    const $ = (id) => document.getElementById(id);
-    const radar = $('radar'), toilet = $('toilet'), accuracyRing = $('accuracy');
-    const lockBtn = $('lock');
-    let shownArrival = false;
+    $('lockCompass').addEventListener('click', () => {
+      if (lockNorthWith(compassNow())) show('compassScreen');
+      else $('lockHint').textContent = 'No compass/gyro readings yet. Hold the phone flat and wait a second.';
+    });
+    $('lockManual').addEventListener('click', () => {
+      if (lockNorthWith(0)) show('compassScreen');
+      else $('lockHint').textContent = 'No gyro readings yet. Hold the phone flat and wait a second.';
+    });
+    $('relock').addEventListener('click', () => show('lockScreen'));
+    $('freeze').addEventListener('click', () => {
+      gpsFrozen = !gpsFrozen;
+      $('freeze').classList.toggle('on', gpsFrozen);
+      $('freeze').textContent = gpsFrozen ? '📍 GPS frozen' : '📍 Freeze GPS';
+    });
+    $('debugBtn').addEventListener('click', () => $('debug').classList.toggle('hidden'));
 
     const pick = $('pick');
     pick.innerHTML = '<option value="auto">🚽 Nearest washroom</option>' +
       WASHROOMS.map((w, i) => `<option value="${i}">${w.name}</option>`).join('');
     pick.addEventListener('change', () => {
-      choice = pick.value;
-      skipWashroom = null;
-      state.target = null;
-      state.arrived = false;
-      shownArrival = false;
+      choice = pick.value; skipWashroom = null;
+      state.target = null; state.arrived = false; shownArrival = false;
     });
 
-    $('start').addEventListener('click', async () => {
-      // Must all happen inside the tap (iPhone permission rule)
-      await startSensors();
-      // Android/Chrome has 'deviceorientationabsolute'; iPhone Safari doesn't.
-      // (Newer Chrome also has requestPermission, so sensors.js can't tell Android apart.)
-      if ('ondeviceorientationabsolute' in window) startAndroidCompass();
-      startLocation();
-      keepAwake();
-      $('startScreen').classList.add('hidden');
-      $('compassScreen').classList.remove('hidden');
-      requestAnimationFrame(loop);
-    });
-
-    lockBtn.addEventListener('click', () => {
-      const ok = androidCompass ? androidLockNorth() : lockNorth();
-      lockBtn.textContent = ok ? '🧭 Locked ✓ (tap to re-lock)' : '🧭 No compass yet';
-    });
-
-    $('debugBtn').addEventListener('click', () => $('debug').classList.toggle('hidden'));
-
+    let shownArrival = false;
     $('again').addEventListener('click', () => {
       skipWashroom = state.target;
-      choice = 'auto';
-      pick.value = 'auto';
-      state.target = null;
-      state.arrived = false;
-      shownArrival = false;
+      choice = 'auto'; pick.value = 'auto';
+      state.target = null; state.arrived = false; shownArrival = false;
       $('arrived').classList.add('hidden');
-      toilet.classList.remove('flush');
+      $('toilet').classList.remove('flush');
     });
 
+    // ---------- Every frame ----------
+    const radar = $('radar'), toilet = $('toilet'), accuracyRing = $('accuracy');
+    const f = (v, n = 0) => (v === null || v === undefined ? '–' : Number(v).toFixed(n));
+
     function loop() {
-      // 1. Distance (team's if it exists, otherwise the demo stand-in)
+      updateHeading();
+      smoothGPS();
       if (typeof updateDistance === 'function' && choice === 'auto') updateDistance();
       else demoUpdateDistance();
-      // 2. Angle (your angle.js)
-      updateAngle();
+      updateAngle();   // Angle (js/angle.js): sets state.bearing and state.relAngle
 
-      // 3. Draw the 🚽 on the rim of the radar at relAngle (0 = top = straight ahead)
+      // Lock screen: live compass
+      $('liveCompass').textContent = compassNow() === null ? '–' : Math.round(compassNow()) + '°';
+
+      // Radar: 🚽 on the rim at relAngle (0 = top = straight ahead)
       const R = radar.clientWidth / 2 - 30;
-      if (state.target && state.distance !== null) {
+      if (state.target && state.distance !== null && !state.arrived) {
         const a = state.relAngle * Math.PI / 180;
-        const r = R;   // always on the rim: turn until it's at the top, then walk straight
-        if (!state.arrived) {
-          toilet.style.transform =
-            `translate(-50%, -50%) translate(${r * Math.sin(a)}px, ${-r * Math.cos(a)}px)`;
-        }
+        toilet.style.transform = `translate(-50%, -50%) translate(${R * Math.sin(a)}px, ${-R * Math.cos(a)}px)`;
         $('big').textContent = Math.round(state.distance) + ' m';
         $('name').textContent = state.target.name;
-
-        // "straight ahead" feedback
         const ahead = Math.abs(state.relAngle) < 15;
         radar.classList.toggle('ahead', ahead);
         toilet.classList.toggle('pulse', ahead);
       }
-
-      // GPS accuracy circle around 💩, on the same scale as the radar
       if (state.accuracy !== null) {
         const d = 2 * R * Math.min(state.accuracy / RADAR_RANGE_M, 1);
         accuracyRing.style.width = accuracyRing.style.height = d + 'px';
-        $('acc').textContent = '± ' + Math.round(state.accuracy) + ' m';
+        $('acc').textContent = '± ' + Math.round(state.accuracy) + ' m' + (gpsFrozen ? ' (frozen)' : '');
       }
 
-      // 4. Arrival: flush, then overlay
+      // Arrival
       if (state.arrived && !shownArrival) {
         shownArrival = true;
         toilet.style.transform = '';
@@ -332,34 +357,26 @@
         }, 1500);
       }
 
-      // 5. Hints, most important first
+      // Hints
       let hint = '';
-      if (androidCompass) state.sensorError = null;   // sensors.js's iPhone checks don't apply here
-      if (state.sensorError === 'unsupported') hint = 'No compass in this browser. Use Safari (iPhone) or Chrome (Android).';
-      else if (state.sensorError === 'denied') hint = 'Motion access denied: close the tab and reopen.';
-      else if (state.sensorError) hint = 'Compass problem: ' + state.sensorError;
-      else if (state.locationError === 'denied') hint = 'Location blocked: allow it in your settings.';
-      else if (androidCompass && android.compassEvents === 0 && android.gyroEvents === 0 &&
-               performance.now() - android.startedAt > 3000)
-        hint = 'No compass data. In Chrome: ⋮ → Settings → Site settings → Motion sensors → Allow, then reload.';
+      const noSensors = isAndroid ? android.compassEvents + android.gyroEvents === 0 : sensorDebug.compass === null;
+      if (state.locationError === 'denied') hint = 'Location blocked: allow it in your settings.';
+      else if (noSensors) hint = isAndroid
+        ? 'No motion sensor data. Chrome: ⋮ → Settings → Site settings → Motion sensors → Allow, then reload.'
+        : 'No compass data yet (iPhone: use Safari and allow Motion access).';
       else if (state.lat === null) hint = 'Finding you… (works best near a window)';
       else if (state.tilted) hint = 'Hold your phone flat';
-      else if (!state.locked) hint = 'Tap Lock north at the entrance, where the compass is accurate';
       else if (Math.abs(state.relAngle) < 15) hint = 'Straight ahead. Walk! 🏃';
       else hint = state.relAngle > 0 ? 'Turn right ↻' : 'Turn left ↺';
       $('hint').textContent = hint;
 
-      lockBtn.classList.toggle('locked', state.locked);
-
-      const f = (v, n = 0) => (v === null || v === undefined ? '–' : Number(v).toFixed(n));
       $('debug').textContent =
-        `lat ${f(state.lat, 6)}  lon ${f(state.lon, 6)}\n` +
-        `GPS ±${f(state.accuracy)} m   heading ${f(state.heading)}° ${state.locked ? '(locked)' : '(compass)'}\n` +
-        (androidCompass
-          ? `android compass ${f(android.compass)}° (${android.compassEvents} readings)  gyro ${f(android.gyro)}° (${android.gyroEvents})\n`
-          : `iphone compass ${f(sensorDebug.compass)}° ±${f(sensorDebug.accuracy)}°\n`) +
-        `bearing ${f(state.bearing)}°   relAngle ${f(state.relAngle)}°   dist ${f(state.distance)} m\n` +
-        `distance.js: ${typeof updateDistance === 'function' ? 'team' : 'demo stand-in'}`;
+        `GPS raw→smoothed ${f(state.lat, 6)}, ${f(state.lon, 6)}  ±${f(state.accuracy)} m\n` +
+        `compass ${f(compassNow())}°  gyro ${f(gyroNow())}°  offset ${f(northOffset)}°\n` +
+        (isAndroid ? `readings: compass ${android.compassEvents}, gyro ${android.gyroEvents}\n` : '') +
+        `heading ${f(state.heading)}°  bearing ${f(state.bearing)}°  relAngle ${f(state.relAngle)}°\n` +
+        `distance ${f(state.distance)} m   distance.js: ${typeof updateDistance === 'function' ? 'team' : 'demo stand-in'}\n` +
+        `🚽 moving while still? bearing changing → GPS (try Freeze GPS). heading changing → compass/gyro.`;
 
       requestAnimationFrame(loop);
     }
