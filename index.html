@@ -106,16 +106,27 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;paddin
 .ico{width:18px;height:18px;flex:none}
 
 /* ---------- search sheet ---------- */
-.scrim{position:absolute;inset:0;z-index:4;display:none}
-.sheet-open .scrim{display:block}
-.sheet{position:absolute;left:-3px;right:-3px;bottom:0;z-index:5;height:min(56dvh,560px);
+.scrim{position:absolute;inset:0;z-index:4;pointer-events:none}
+.sheet-open .scrim{pointer-events:auto}
+/* The sheet is always full height (top of the screen down to the bottom). JS slides it with
+   --sheet-y: 0 = pulled all the way up, a bigger number = lower (the "half" stop), and
+   --sheet-pad keeps the list's last row above the screen edge when it's only half up. */
+.sheet{position:absolute;left:-3px;right:-3px;bottom:0;top:calc(var(--safe-t) + 10px);z-index:5;
   background:var(--paper);border:3px solid var(--out);border-bottom:0;border-radius:30px 30px 0 0;
   box-shadow:0 -6px 0 rgba(20,32,27,.25);display:flex;flex-direction:column;
-  padding:12px 25px calc(var(--safe-b) + 8px);transform:translateY(105%);transition:transform .28s cubic-bezier(.2,.8,.2,1);
-  visibility:hidden;user-select:text;-webkit-user-select:text}
-.sheet-open .sheet{transform:none;visibility:visible}
+  padding:12px 25px calc(var(--safe-b) + 8px + var(--sheet-pad,0px));
+  transform:translateY(calc(100% + 12px));
+  transition:transform .34s cubic-bezier(.2,.8,.2,1),visibility 0s linear .34s;
+  visibility:hidden;user-select:text;-webkit-user-select:text;touch-action:none}
+.sheet-open .sheet{transform:translateY(var(--sheet-y,0px));visibility:visible;
+  transition:transform .34s cubic-bezier(.2,.8,.2,1),visibility 0s}
+.sheet.dragging{transition:none!important}
+.sheet .results{touch-action:pan-y}
+.scrim{background:rgba(20,32,27,.28);opacity:0;transition:opacity .34s}
+.sheet-open .scrim{opacity:var(--scrim,0)}
 .grabber{align-self:center;width:44px;height:5px;border-radius:3px;background:#C3C9C5;margin-bottom:14px;flex:none;
   box-sizing:content-box;padding:6px 30px;background-clip:content-box;cursor:grab;touch-action:none}
+.sheet.dragging .grabber{cursor:grabbing}
 .field{display:flex;align-items:center;gap:10px;padding:0 14px 0 16px;height:52px;border-radius:22px;flex:none;
   background:var(--field);border:2.5px solid var(--out)}
 .field input{flex:1;min-width:0;border:0;background:none;outline:none;font:800 17px var(--font);color:var(--ink);
@@ -192,12 +203,12 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;paddin
   .dist{font-size:48px}
   .search-pill{position:static;transform:none}
   .search-pill:active{transform:translateY(3px)}
-  .sheet{left:auto;right:56px;width:440px;bottom:0;height:min(70vh,620px)}
+  .sheet{left:auto;right:56px;width:440px;bottom:0;top:24px}
   .demo{bottom:24px}
 }
 @media (prefers-reduced-motion:reduce){
   .pulse{animation:none;opacity:.5}.pulse.p2{opacity:.25}.pulse.p3{opacity:.1}
-  #flash.go{animation:none}.sheet,#detents{transition:none}
+  #flash.go{animation:none}.sheet,.sheet-open .sheet,.scrim,#detents{transition:none}
 }
 </style>
 </head>
@@ -284,6 +295,6 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;paddin
 <script src="js/angle.js?v=1"></script>
 <script src="js/distance.js?v=1"></script>
 <script src="js/search.js?v=1"></script>
-<script src="js/app.js?v=2"></script>
+<script src="js/app.js?v=3"></script>
 </body>
 </html>

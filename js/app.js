@@ -9,10 +9,10 @@
 //
 // How the radar is used:
 //   Top button          first press switches on; after that it steps the range 50 m / 200 m / 1 km
-//   Swipe around        turns the dial: one click per building, nearest first
+//   Swipe around        turns the dial: one click per building, nearest first, wraps around at the ends
 //   Tap the glass       lock on to the selected building (tap again to let go)
 //   Triple-tap          lock on to the closest door of the nearest building with a washroom
-//   Search pill / swipe up from the bottom   opens search
+//   Search pill / swipe up from the bottom   opens search half way; drag it up to fill the screen
 //
 // Wrapped in (() => { ... })() so its helper names can't clash with other files.
 
@@ -249,8 +249,9 @@
     if (!list.length) return;
     let i = list.findIndex((c) => c.building.id === ui.selectedId);
     if (i === -1) i = 0;
-    const next = Math.max(0, Math.min(list.length - 1, i + steps));
-    if (next === i && ui.selectedId) return;   // at the end of the list: no click
+    // Wraps around: past the farthest building comes the nearest again, and the other way.
+    const next = ((i + steps) % list.length + list.length) % list.length;
+    if (next === i && ui.selectedId) return;   // only one building: nothing to turn to
     selectBuilding(list[next].building.id);
     click();
     clickLines.classList.add('on');
@@ -479,13 +480,43 @@
   const q = $('q');
   const sheet = $('sheet');
 
-  function openSheet() {
+  // The sheet has two stops: 'half' (the old height) and 'full' (up to the top of the screen).
+  // Its position is --sheet-y, in px down from fully open.
+  const DESKTOP_MQ = matchMedia('(min-width:900px) and (min-height:560px)');
+  let sheetSnap = 'half';
+  let sheetY = 0;
+
+  function sheetHeight() { return sheet.offsetHeight || window.innerHeight; }
+  function halfY() {
+    const half = DESKTOP_MQ.matches ? Math.min(innerHeight * 0.7, 620) : Math.min(innerHeight * 0.56, 560);
+    return Math.max(0, sheetHeight() - half);
+  }
+  function snapY(snap) { return snap === 'full' ? 0 : halfY(); }
+
+  // Put the sheet at y (px). The scrim darkens as it nears the top.
+  function placeSheet(y) {
+    sheetY = y;
+    sheet.style.setProperty('--sheet-y', y + 'px');
+    const h = halfY() || 1;
+    app.style.setProperty('--scrim', String(Math.max(0, Math.min(1, 1 - y / h))));
+  }
+  function setSnap(snap) {
+    sheetSnap = snap;
+    // At the half stop, pad the bottom so the last result isn't hidden below the screen.
+    sheet.style.setProperty('--sheet-pad', (snap === 'half' ? halfY() : 0) + 'px');
+    placeSheet(snapY(snap));
+  }
+
+  function openSheet(snap = 'half') {
     if (ui.mode === 'off') return;
+    const wasOpen = ui.sheetOpen;
     ui.sheetOpen = true;
+    setSnap(snap);
     app.classList.add('sheet-open');
     sheet.setAttribute('aria-hidden', 'false');
     renderResults();
-    setTimeout(() => q.focus(), 60);
+    // Don't pop the phone keyboard over the slide-up; desktop gets focus straight away.
+    if (!wasOpen) setTimeout(() => q.focus({ preventScroll: true }), DESKTOP_MQ.matches ? 60 : 360);
   }
   function closeSheet() {
     ui.sheetOpen = false;
@@ -494,25 +525,68 @@
     q.blur();
     radar.focus({ preventScroll: true });
   }
-  $('searchBtn').addEventListener('click', openSheet);
+  $('searchBtn').addEventListener('click', () => openSheet('half'));
   $('scrim').addEventListener('click', closeSheet);
+  addEventListener('resize', () => { if (ui.sheetOpen) setSnap(sheetSnap); });
 
-  // Swipe up from the bottom of the screen opens search; swiping the grabber down closes it.
+  // Swipe up from the bottom of the screen opens search. A long swipe goes straight to the top.
   let edge = null;
   app.addEventListener('touchstart', (e) => {
     const t = e.touches[0];
     if (!ui.sheetOpen && ui.mode !== 'off' && t.clientY > window.innerHeight - 110 && !e.target.closest('#radar')) {
-      edge = { y: t.clientY, open: true };
-    } else if (ui.sheetOpen && e.target.closest('#grabber')) {
-      edge = { y: t.clientY, open: false };
+      edge = { y: t.clientY, opened: false };
     } else edge = null;
   }, { passive: true });
   app.addEventListener('touchmove', (e) => {
     if (!edge) return;
     const dy = e.touches[0].clientY - edge.y;
-    if (edge.open && dy < -40) { edge = null; openSheet(); }
-    else if (!edge.open && dy > 50) { edge = null; closeSheet(); }
+    if (!edge.opened && dy < -40) { edge.opened = true; openSheet('half'); }
+    if (edge.opened && dy < -window.innerHeight * 0.35 && sheetSnap !== 'full') setSnap('full');
   }, { passive: true });
+  app.addEventListener('touchend', () => { edge = null; }, { passive: true });
+
+  // Drag the sheet by its grabber or any bare part of it (not the field, buttons or list).
+  // It follows the finger, then snaps to full, half or closed depending on where and how fast you let go.
+  let sheetDrag = null;
+  sheet.addEventListener('pointerdown', (e) => {
+    if (!ui.sheetOpen) return;
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    const onGrabber = !!e.target.closest('#grabber');
+    if (!onGrabber && e.target.closest('input, button, a, .field, .results')) return;
+    try { sheet.setPointerCapture(e.pointerId); } catch (err) { /* nice-to-have */ }
+    sheetDrag = { id: e.pointerId, y0: e.clientY, base: sheetY, lastY: e.clientY, lastT: e.timeStamp, v: 0, moved: false };
+  });
+  sheet.addEventListener('pointermove', (e) => {
+    if (!sheetDrag || e.pointerId !== sheetDrag.id) return;
+    const dy = e.clientY - sheetDrag.y0;
+    if (!sheetDrag.moved && Math.abs(dy) < 4) return;
+    if (!sheetDrag.moved) { sheetDrag.moved = true; sheet.classList.add('dragging'); q.blur(); }
+    let y = sheetDrag.base + dy;
+    if (y < 0) y = -Math.pow(-y, 0.7);            // a bit of rubber band past the top
+    placeSheet(Math.min(y, sheetHeight()));
+    const dt = e.timeStamp - sheetDrag.lastT;
+    if (dt > 0) sheetDrag.v = 0.7 * sheetDrag.v + 0.3 * ((e.clientY - sheetDrag.lastY) / dt);   // px per ms
+    sheetDrag.lastY = e.clientY; sheetDrag.lastT = e.timeStamp;
+  });
+  function endSheetDrag(e) {
+    if (!sheetDrag || e.pointerId !== sheetDrag.id) return;
+    const d = sheetDrag;
+    sheetDrag = null;
+    sheet.classList.remove('dragging');
+    if (!d.moved) {
+      // A tap on the grabber flips between half and full.
+      if (e.target.closest && e.target.closest('#grabber')) setSnap(sheetSnap === 'full' ? 'half' : 'full');
+      return;
+    }
+    const projected = sheetY + d.v * 180;          // where a flick would carry it
+    const stops = [['full', 0], ['half', halfY()], ['closed', sheetHeight()]];
+    let best = stops[0];
+    for (const s of stops) if (Math.abs(projected - s[1]) < Math.abs(projected - best[1])) best = s;
+    if (best[0] === 'closed') closeSheet();
+    else setSnap(best[0]);
+  }
+  sheet.addEventListener('pointerup', endSheetDrag);
+  sheet.addEventListener('pointercancel', endSheetDrag);
 
   let resultSignature = '';
   function renderResults() {
