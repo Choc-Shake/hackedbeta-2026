@@ -1,553 +1,837 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>CampMap</title>
-
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Campus Compass – demo</title>
 <style>
-:root{
-    --green:#0F5C4E;
-    --gold:#F2C94C;
-    --cream:#F6F0DF;
-    --card:#FFFFFF;
-    --sweep:rgba(242,201,76,.65);
+:root {
+  --green: #0F5C4E;
+  --gold: #F2C94C;
+  --cream: #F6F0DF;
+  --card: #FFFFFF;
+  --sweep: rgba(242, 201, 76, .65);
 }
-
-*{
-    margin:0;
-    padding:0;
-    box-sizing:border-box;
-    font-family:Arial,sans-serif;
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, sans-serif; }
+body {
+  background: var(--cream); color: var(--green); min-height: 100vh;
+  display: flex; justify-content: center; padding: 16px; transition: background .3s;
 }
+.app { max-width: 430px; width: 100%; }
+.hidden { display: none !important; }
 
-body{
-    background:var(--cream);
-    color:var(--green);
-    min-height:100vh;
-    display:flex;
-    justify-content:center;
-    padding:20px;
-    transition:.3s;
+/* ---------- Header + menu (from UI/MainUI.html) ---------- */
+.header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.logo { font-size: 1.7rem; font-weight: 800; }
+.menu {
+  width: 52px; height: 52px; border: none; border-radius: 12px; background: transparent;
+  display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 6px;
+  cursor: pointer; transition: background .25s, transform .15s;
 }
-
-.app{
-    max-width:430px;
-    width:100%;
+.menu span { width: 28px; height: 3px; background: var(--green); border-radius: 999px; transition: .3s; }
+.menu:active { transform: scale(.9); }
+.menu.active { background: var(--green); }
+.menu.active span { background: var(--card); }
+.menu.active span:nth-child(1) { transform: translateY(9px) rotate(45deg); }
+.menu.active span:nth-child(2) { opacity: 0; }
+.menu.active span:nth-child(3) { transform: translateY(-9px) rotate(-45deg); }
+.dropdown {
+  max-height: 0; overflow: hidden; background: var(--card); border: 3px solid var(--green);
+  border-radius: 20px; margin-bottom: 16px; padding: 0 15px; transition: .35s; opacity: 0;
 }
-
-/* HEADER */
-
-.header{
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    margin-bottom:15px;
+.dropdown.open { max-height: 700px; padding: 15px; opacity: 1; }
+.dropdown h3 { margin: 6px 0 8px; }
+.dropdown button {
+  width: 100%; padding: 12px; margin-bottom: 6px; border: none; border-radius: 12px;
+  background: transparent; color: var(--green); font-size: 1rem; font-weight: 700;
+  text-align: left; cursor: pointer; transition: .2s;
 }
+.dropdown button:active, .dropdown button.active { background: var(--green); color: var(--card); }
 
-.logo{
-    font-size:2rem;
-    font-weight:800;
+/* ---------- Cards + buttons ---------- */
+.card { background: var(--card); border: 3px solid var(--green); border-radius: 20px; padding: 18px; margin-bottom: 14px; }
+.label { opacity: .7; font-size: .95rem; }
+.title { margin-top: 6px; font-size: 1.25rem; font-weight: 800; }
+.code {
+  display: inline-block; margin-left: 6px; padding: 2px 8px; border-radius: 8px;
+  background: var(--green); color: var(--card); font-size: .8rem; vertical-align: middle;
 }
+.sub { margin-top: 4px; font-size: .9rem; opacity: .75; }
+.distance { margin-top: 8px; font-size: 2.6rem; font-weight: 900; color: var(--gold);
+            text-shadow: 0 1px 0 rgba(0,0,0,.15); }
+.distance small { font-size: 1.1rem; margin-left: 4px; }
+.eta { font-size: .9rem; opacity: .75; }
+.btn {
+  border: 3px solid var(--green); border-radius: 14px; padding: 12px 16px; font-size: 1rem;
+  font-weight: 800; cursor: pointer; background: var(--card); color: var(--green); transition: transform .12s;
+}
+.btn:active { transform: scale(.96); }
+.btn.primary { background: var(--green); color: var(--card); }
+.btn.on { background: var(--gold); border-color: var(--gold); color: #1a1a1a; }
+.btn.wide { width: 100%; margin-top: 10px; }
+.row-btns { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 10px; }
+.row-btns .btn { flex: 1 1 auto; font-size: .9rem; padding: 10px 12px; }
+.err { color: #b3261e; margin-top: 10px; min-height: 1.2em; font-size: .95rem; }
+.err a { color: inherit; }
+p.body { margin-top: 8px; line-height: 1.45; }
 
-/* HAMBURGER */
+/* ---------- Search ---------- */
+.search { width: 100%; padding: 14px 16px; border-radius: 14px; border: 3px solid var(--green);
+          font-size: 1.05rem; background: var(--card); color: var(--green); }
+.listhead { margin: 14px 4px 6px; font-weight: 800; opacity: .7; }
+.list { display: flex; flex-direction: column; gap: 8px; }
+.place {
+  display: flex; align-items: center; gap: 8px; text-align: left; width: 100%; cursor: pointer;
+  background: var(--card); color: var(--green); border: 2px solid var(--green); border-radius: 14px; padding: 12px 14px;
+}
+.place .n { flex: 1; font-weight: 700; }
+.place .n small { display: block; font-weight: 400; opacity: .7; margin-top: 2px; }
+.place .d { font-weight: 800; white-space: nowrap; }
+.stars-mini { color: var(--gold); text-shadow: 0 0 1px rgba(0,0,0,.5); }
+.empty { opacity: .7; padding: 12px; }
 
-.menu{
-    width:52px;
-    height:52px;
+/* ---------- Radar (from UI/MainUI.html) ---------- */
+.radar-wrap { display: flex; justify-content: center; margin: 16px 0; }
+.radar {
+  width: min(300px, 78vw); aspect-ratio: 1; border-radius: 50%; overflow: hidden; position: relative;
+  border: 6px solid var(--green); background: repeating-radial-gradient(circle, rgba(15,92,78,.12) 0 2px, transparent 2px 34px);
+  transition: box-shadow .3s;
+}
+.app.oncourse .radar { box-shadow: 0 0 0 4px var(--gold), 0 0 28px var(--gold); }
+.sweep { position: absolute; inset: 0; background: linear-gradient(130deg, transparent, var(--sweep), transparent);
+         animation: spin 4s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.v { position: absolute; left: 50%; width: 2px; height: 100%; background: rgba(15,92,78,.2); }
+.h { position: absolute; top: 50%; height: 2px; width: 100%; background: rgba(15,92,78,.2); }
+.ahead { position: absolute; left: 50%; top: 6px; transform: translateX(-50%); width: 0; height: 0;
+         border: 9px solid transparent; border-top: 14px solid var(--green); }
+.icon { position: absolute; left: 50%; top: 50%; line-height: 1; transform: translate(-50%, -50%); }
+.you { font-size: 64px; }
+.target { font-size: 46px; filter: drop-shadow(0 0 10px var(--gold)); z-index: 2; }
+.app.oncourse .target { animation: pulse 1.2s infinite; }
+@keyframes pulse { 50% { filter: drop-shadow(0 0 20px var(--gold)) brightness(1.15); } }
+.app.arrived .target { opacity: 0; }
+.check { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+         font-size: 110px; opacity: 0; transform: scale(.4); transition: .4s; z-index: 3; }
+.app.arrived .check { opacity: 1; transform: scale(1); }
+.app.arrived .you { opacity: .25; }
+.hint { text-align: center; font-weight: 800; font-size: 1.2rem; }
+.toast { text-align: center; margin-top: 6px; min-height: 1.3em; font-size: .92rem; color: #9a6a00; }
+.toplabel { text-align: center; font-size: .75rem; font-weight: 800; letter-spacing: .06em; opacity: .7; margin-bottom: -8px; }
+.back { border: none; background: none; color: var(--green); font-size: 1rem; font-weight: 800; cursor: pointer; margin-bottom: 8px; }
 
-    border:none;
-    border-radius:12px;
+/* ---------- Demo panel ---------- */
+.demo { border-style: dashed; }
+.demo .t { display: flex; justify-content: space-between; font-weight: 800; font-size: .9rem; }
+.demo input[type=range] { width: 100%; margin: 10px 0 2px; accent-color: var(--green); }
 
-    background:transparent;
+/* ---------- Ratings ---------- */
+.rating { border: 2px solid var(--green); border-radius: 14px; padding: 12px 14px; background: var(--card); }
+.rating .top { display: flex; justify-content: space-between; gap: 8px; font-weight: 800; }
+.rating .tags { margin-top: 6px; display: flex; gap: 6px; flex-wrap: wrap; }
+.tag { font-size: .8rem; padding: 3px 8px; border-radius: 999px; background: var(--cream); border: 1px solid var(--green); }
+.rating .note { margin-top: 6px; font-style: italic; opacity: .85; }
+.rating .meta { margin-top: 6px; font-size: .8rem; opacity: .6; }
+.rating .acts { margin-top: 8px; display: flex; gap: 8px; }
+.rating .acts button { flex: 1; padding: 8px; font-size: .85rem; }
 
-    display:flex;
-    flex-direction:column;
-    justify-content:center;
-    align-items:center;
-    gap:6px;
+/* ---------- Rating sheet ---------- */
+.overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: flex-end;
+           justify-content: center; z-index: 20; padding: 12px; }
+.sheet { width: 100%; max-width: 430px; background: var(--card); border: 3px solid var(--green);
+         border-radius: 22px; padding: 18px; animation: up .25s ease-out; }
+@keyframes up { from { transform: translateY(40px); opacity: 0; } }
+.starpick { display: flex; justify-content: center; gap: 6px; margin: 14px 0; }
+.starpick button { background: none; border: none; font-size: 42px; cursor: pointer; line-height: 1;
+                   filter: grayscale(1) opacity(.35); transition: transform .1s, filter .15s; }
+.starpick button.lit { filter: none; }
+.starpick button:active { transform: scale(1.25); }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.chip { border: 2px solid var(--green); border-radius: 999px; padding: 6px 12px; background: var(--card);
+        color: var(--green); font-weight: 700; font-size: .85rem; cursor: pointer; }
+.chip.on { background: var(--green); color: var(--card); }
+textarea { width: 100%; margin-top: 12px; border: 2px solid var(--green); border-radius: 12px; padding: 10px;
+           font-size: .95rem; min-height: 70px; background: var(--card); color: var(--green); }
+  .theme-list{
 
-    cursor:pointer;
+    max-height:0;
+
+    overflow:hidden;
+
+    opacity:0;
 
     transition:
-        background .25s ease,
-        transform .15s ease;
+        max-height .3s ease,
+        opacity .25s ease;
+
+    margin-left:10px;
 }
 
-.menu span{
-    width:28px;
-    height:3px;
+.theme-list.open{
 
-    background:var(--green);
+    max-height:400px;
 
-    border-radius:999px;
-
-    transition:.3s;
-}
-
-.menu:hover{
-    background:var(--green);
-}
-
-.menu:hover span{
-    background:var(--card);
-}
-
-.menu:active{
-    transform:scale(.90);
-}
-
-.menu.active{
-    background:var(--green);
-}
-
-.menu.active span{
-    background:var(--card);
-}
-
-.menu.active span:nth-child(1){
-    transform:translateY(9px) rotate(45deg);
-}
-
-.menu.active span:nth-child(2){
-    opacity:0;
-}
-
-.menu.active span:nth-child(3){
-    transform:translateY(-9px) rotate(-45deg);
-}
-
-/* DROPDOWN */
-
-.dropdown{
-    max-height:0;
-    overflow:hidden;
-
-    background:var(--card);
-
-    border:3px solid var(--green);
-
-    border-radius:20px;
-
-    margin-bottom:20px;
-
-    padding:0 15px;
-
-    transition:.35s;
-}
-
-.dropdown.open{
-    max-height:500px;
-    padding:15px;
-}
-
-.dropdown h3{
-    margin-bottom:10px;
-    color:var(--green);
-}
-
-.dropdown button{
-    width:100%;
-
-    padding:12px;
-
-    margin-bottom:8px;
-
-    border:none;
-
-    border-radius:12px;
-
-    background:transparent;
-
-    color:var(--green);
-
-    font-size:1rem;
-    font-weight:700;
-
-    text-align:left;
-
-    cursor:pointer;
-
-    transition:.2s;
-}
-
-.dropdown button:hover{
-    background:var(--green);
-    color:var(--card);
-    transform:translateX(4px);
-}
-
-.dropdown button:active{
-    transform:
-        translateX(4px)
-        scale(.96);
-}
-
-.dropdown button.active{
-    background:var(--green);
-    color:var(--card);
-}
-
-/* CARDS */
-
-.card,
-.footer{
-    background:var(--card);
-
-    border:3px solid var(--green);
-
-    border-radius:20px;
-
-    padding:18px;
-
-    transition:.3s;
-}
-
-.label{
-    opacity:.7;
-}
-
-.location{
-    margin-top:6px;
-
-    font-size:1.2rem;
-    font-weight:700;
-}
-
-.distance{
-    margin-top:10px;
-
-    font-size:2.7rem;
-    font-weight:900;
-
-    color:var(--gold);
-}
-
-/* RADAR */
-
-.radar-wrap{
-    display:flex;
-    justify-content:center;
-    margin:25px 0;
-}
-
-.radar{
-    width:300px;
-    height:300px;
-
-    border-radius:50%;
-
-    overflow:hidden;
-
-    position:relative;
-
-    border:6px solid var(--green);
-
-    background:
-    repeating-radial-gradient(
-        circle,
-        rgba(15,92,78,.12) 0 2px,
-        transparent 2px 34px
-    );
-}
-
-.sweep{
-    position:absolute;
-    inset:0;
-
-    background:
-    linear-gradient(
-        130deg,
-        transparent,
-        var(--sweep),
-        transparent
-    );
-
-    animation:spin 4s linear infinite;
-}
-
-@keyframes spin{
-    from{
-        transform:rotate(0deg);
-    }
-    to{
-        transform:rotate(360deg);
-    }
-}
-
-.v{
-    position:absolute;
-    left:50%;
-    width:2px;
-    height:100%;
-    background:rgba(15,92,78,.2);
-}
-
-.h{
-    position:absolute;
-    top:50%;
-    height:2px;
-    width:100%;
-    background:rgba(15,92,78,.2);
-}
-
-.toilet{
-    position:absolute;
-
-    left:50%;
-    top:12%;
-
-    transform:translateX(-50%);
-
-    font-size:56px;
-
-    filter:
-        drop-shadow(
-            0 0 12px var(--gold)
-        );
-
-    animation:pulse 1.8s infinite;
-}
-
-@keyframes pulse{
-    0%,100%{
-        transform:translateX(-50%) scale(1);
-    }
-
-    50%{
-        transform:translateX(-50%) scale(1.12);
-    }
-}
-
-.poop{
-    position:absolute;
-
-    left:50%;
-    top:50%;
-
-    transform:translate(-50%,-50%);
-
-    font-size:90px;
-}
-
-/* FOOTER */
-
-.footer{
-    text-align:center;
-}
-
-.footer p{
-    margin-top:6px;
+    opacity:1;
 }
 </style>
 </head>
-
 <body>
+<div class="app" id="app">
 
-<div class="app">
+  <!-- ===== Header + menu ===== -->
+  <div class="header">
+    <div class="logo">🧭 CampusCompass</div>
+    <button class="menu" id="menu" aria-label="Menu"><span></span><span></span><span></span></button>
+  </div>
+  <div class="dropdown" id="dropdown">
+    <button id="menuRatings">⭐ My ratings</button>
+    <button id="menuSearch">🔎 Find a building</button>
+    <button id="themeToggle">
+    🎨 Themes ▼
+</button>
 
-    <div class="header">
+<div id="themeList" class="theme-list">
 
-        <div class="logo">
-            🧭 CampMap
-        </div>
+    <button id="randomTheme">
+        🎲 Randomize colours
+    </button>
 
-        <button class="menu" id="menu">
-            <span></span>
-            <span></span>
-            <span></span>
-        </button>
+    <button data-theme="uofa" class="active">
+        🟢 UAlberta
+    </button>
 
-    </div>
+    <button data-theme="dark">
+        ⚫ Dark radar
+    </button>
 
-    <div class="dropdown" id="dropdown">
+    <button data-theme="matrix">
+        💻 Matrix
+    </button>
 
-        <h3>🎨 Select Theme</h3>
+    <button data-theme="retro">
+        🟡 Retro radar
+    </button>
 
-        <button id="randomTheme">
-            🎲 Randomize Colors
-        </button>
-
-        <button data-theme="uofa" class="active">
-            🟢 UAlberta
-        </button>
-
-        <button data-theme="dark">
-            ⚫ Dark Radar
-        </button>
-
-        <button data-theme="matrix">
-            💻 Matrix
-        </button>
-
-        <button data-theme="retro">
-            🟡 Retro Radar
-        </button>
-
-        <button data-theme="ocean">
-            🌊 Ocean
-        </button>
-
-    </div>
-
-    <div class="card">
-
-        <div class="label">
-            Nearest Washroom
-        </div>
-
-        <div class="location">
-            UCommons Main Hallway
-        </div>
-
-        <div class="distance">
-            12 m
-        </div>
-
-    </div>
-
-    <div class="radar-wrap">
-
-        <div class="radar">
-
-            <div class="sweep"></div>
-
-            <div class="v"></div>
-            <div class="h"></div>
-
-            <div class="toilet">
-                🚽
-            </div>
-
-            <div class="poop">
-                💩
-            </div>
-
-        </div>
-
-    </div>
-
-    <div class="footer">
-        <strong>Nearest Washroom Located</strong>
-        <p>
-            Follow the highlighted toilet icon on the radar.
-        </p>
-        <p>
-          Keep your phone flat for accurate mapping
-        </p>
-    </div>
+    <button data-theme="ocean">
+        🌊 Ocean
+    </button>
 
 </div>
+  </div>
+
+  <!-- ===== 1. Start ===== -->
+  <section id="start">
+    <div class="card">
+      <div class="label">HackED Beta 2026</div>
+      <div class="title">Find any UAlberta building, then follow the radar to its closest door.</div>
+      <p class="body">Rate the places you visit, too. Your ratings stay on your phone.</p>
+      <button class="btn primary wide" id="startReal">📍 Use my location</button>
+      <button class="btn wide" id="startDemo">🎮 Demo mode (works anywhere)</button>
+      <div class="err" id="startErr"></div>
+    </div>
+  </section>
+
+  <!-- ===== 2. Search ===== -->
+  <section id="search" class="hidden">
+    <input class="search" id="q" type="search" placeholder="Search: CAB, ETLC, Butterdome…" autocomplete="off">
+    <button class="btn primary wide" id="wcBtn">🚻 Nearest washroom</button>
+    <div class="listhead" id="listHead">All buildings</div>
+    <div class="list" id="list"></div>
+  </section>
+
+  <!-- ===== 3. Guide ===== -->
+  <section id="guide" class="hidden">
+    <button class="back" id="backBtn">← Back to search</button>
+    <div class="card">
+      <div class="label" id="destKind">Guiding to</div>
+      <div class="title"><span id="destName"></span><span class="code" id="destCode"></span></div>
+      <div class="sub" id="destSub"></div>
+      <div class="distance"><span id="distNum">--</span><small id="distUnit">m</small></div>
+      <div class="eta" id="eta"></div>
+    </div>
+
+    <div class="toplabel">LINE IT UP HERE ▼</div>
+    <div class="radar-wrap">
+      <div class="radar" id="radar">
+        <div class="sweep"></div>
+        <div class="v"></div><div class="h"></div>
+        <div class="ahead"></div>
+        <div class="icon you">📍</div>
+        <div class="icon target" id="target">🏛️</div>
+        <div class="check">✅</div>
+      </div>
+    </div>
+    <div class="hint" id="hint">Getting your position…</div>
+    <div class="toast" id="toast"></div>
+
+    <div class="row-btns">
+      <button class="btn" id="lockBtn">🧭 Lock north</button>
+      <button class="btn" id="rateBtn">⭐ Rate this place</button>
+    </div>
+
+    <div class="card demo hidden" id="demoPanel" style="margin-top:14px">
+      <div class="t"><span>🎮 Demo mode</span><span id="demoHead">facing 0°</span></div>
+      <input id="demoTurn" type="range" min="0" max="359" value="0" aria-label="Direction you face">
+      <div class="row-btns">
+        <button class="btn" id="demoWalk">▶ Walk</button>
+        <button class="btn" id="demoAuto">Auto-steer</button>
+        <button class="btn" id="demoPhone">📱 Phone compass</button>
+        <button class="btn" id="demoReset">Reset</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== 4. My ratings ===== -->
+  <section id="ratings" class="hidden">
+    <button class="back" id="ratingsBack">← Back</button>
+    <div class="card">
+      <div class="title">⭐ My ratings</div>
+      <div class="sub" id="ratingsSummary"></div>
+    </div>
+    <div class="list" id="ratingList"></div>
+  </section>
+</div>
+
+<!-- ===== Rating sheet ===== -->
+<div class="overlay hidden" id="sheetWrap">
+  <div class="sheet">
+    <div class="label" id="sheetKind">Rate</div>
+    <div class="title" id="sheetName"></div>
+    <div class="starpick" id="starPick"></div>
+    <div class="chips" id="chips"></div>
+    <textarea id="note" maxlength="200" placeholder="Anything to remember? (optional)"></textarea>
+    <div class="err" id="sheetErr"></div>
+    <div class="row-btns">
+      <button class="btn" id="sheetCancel">Cancel</button>
+      <button class="btn primary" id="sheetSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Team files, loaded read-only (this page changes none of them).
+     sensors.js is skipped on purpose: this page has its own compass code that
+     also works on Android. -->
+<script src="../js/state.js?v=1"></script>
+<script src="../js/buildings.js?v=1"></script>
+<script src="../js/distance.js?v=1"></script>
+<script src="../js/search.js?v=1"></script>
+<script src="../js/angle.js?v=1"></script>
+<script src="../js/location.js?v=1"></script>
 
 <script>
-const menu = document.getElementById("menu");
-const dropdown = document.getElementById("dropdown");
+// Wrapped in (() => { ... })() so none of these names can clash with team files.
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const app = $('app');
+  const wrap360 = (a) => ((a % 360) + 360) % 360;
+  const ON_COURSE_DEG = 15;
+  const WEAK_GPS_M = 25;
+  const WALK_SPEED_MPS = 1.3;
+  const DEMO_START = { lat: 53.52620, lon: -113.52430 };   // Main Quad (same as the team's ?demo)
+  const DEMO_SPEED_MPS = 7;                                // fast-forward walking
 
-menu.addEventListener("click", () => {
-    menu.classList.toggle("active");
-    dropdown.classList.toggle("open");
-});
+  let mode = null;          // 'real' or 'demo'
+  let screen = 'start';
 
-function setTheme(theme){
+  // ===================================================================
+  // STORAGE (wrapped: some browsers block it; then we just keep it in memory)
+  // ===================================================================
+  const store = {
+    get(key, fallback) {
+      try { const v = localStorage.getItem(key); return v === null ? fallback : JSON.parse(v); }
+      catch (e) { return fallback; }
+    },
+    set(key, value) {
+      try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) {}
+    },
+  };
 
-    const root = document.documentElement.style;
+  // ===================================================================
+  // SCREENS + MENU
+  // ===================================================================
+  const screens = ['start', 'search', 'guide', 'ratings'];
+  let lastScreen = 'search';
+  function show(name) {
+    if (name === 'ratings' && screen !== 'ratings') lastScreen = screen === 'start' ? 'start' : screen;
+    screen = name;
+    for (const s of screens) $(s).classList.toggle('hidden', s !== name);
+    if (name === 'search') renderList(true);
+    if (name === 'ratings') renderRatings();
+    window.scrollTo(0, 0);
+  }
+  const menu = $('menu'), dropdown = $('dropdown');
+  function closeMenu() { menu.classList.remove('active'); dropdown.classList.remove('open'); }
+  menu.addEventListener('click', () => { menu.classList.toggle('active'); dropdown.classList.toggle('open'); });
+  $('menuRatings').addEventListener('click', () => { closeMenu(); show('ratings'); });
+  $('menuSearch').addEventListener('click', () => {
+    closeMenu();
+    if (mode) { stopGuiding(); show('search'); } else show('start');
+  });
+  $('ratingsBack').addEventListener('click', () => show(lastScreen));
 
-    if(theme === "uofa"){
-        root.setProperty("--green","#0F5C4E");
-        root.setProperty("--gold","#F2C94C");
-        root.setProperty("--cream","#F6F0DF");
-        root.setProperty("--card","#FFFFFF");
-        root.setProperty("--sweep","rgba(242,201,76,.65)");
+  // ===================================================================
+  // THEMES (from UI/MainUI.html), remembered between visits
+  // ===================================================================
+  const THEMES = {
+    uofa:   ['#0F5C4E', '#F2C94C', '#F6F0DF', '#FFFFFF', 'rgba(242,201,76,.65)'],
+    dark:   ['#22C55E', '#FACC15', '#020617', '#111827', 'rgba(34,197,94,.75)'],
+    matrix: ['#00FF66', '#00FF66', '#000000', '#000000', 'rgba(0,255,102,.85)'],
+    retro:  ['#8B4513', '#FFD700', '#FDF6E3', '#FFFDF5', 'rgba(255,215,0,.75)'],
+    ocean:  ['#0284C7', '#67E8F9', '#E0F2FE', '#FFFFFF', 'rgba(103,232,249,.85)'],
+  };
+  function applyColours([green, gold, cream, card, sweep]) {
+    const r = document.documentElement.style;
+    r.setProperty('--green', green); r.setProperty('--gold', gold); r.setProperty('--cream', cream);
+    r.setProperty('--card', card); r.setProperty('--sweep', sweep);
+  }
+  function setTheme(name) {
+    if (!THEMES[name]) return;
+    applyColours(THEMES[name]);
+    document.querySelectorAll('[data-theme]').forEach((b) => b.classList.toggle('active', b.dataset.theme === name));
+    store.set('cc.theme', name);
+  }
+  document.querySelectorAll('[data-theme]').forEach((b) => b.addEventListener('click', () => setTheme(b.dataset.theme)));
+  $('randomTheme').addEventListener('click', () => {
+    const hue = Math.floor(Math.random() * 360);
+    applyColours([`hsl(${hue} 70% 28%)`, `hsl(${(hue + 50) % 360} 90% 60%)`, `hsl(${hue} 40% 94%)`,
+                  '#FFFFFF', `hsla(${(hue + 50) % 360} 90% 60% / .7)`]);
+    document.querySelectorAll('[data-theme]').forEach((b) => b.classList.remove('active'));
+  });
+  setTheme(store.get('cc.theme', 'uofa'));
+
+  // ===================================================================
+  // COMPASS (iPhone + Android). Lock north = remember the compass-gyro gap,
+  // then steer by gyro, which steel/concrete can't bend.
+  // ===================================================================
+  const sens = { compass: null, gyro: null, offset: null, events: 0, startedAt: 0, listening: false };
+  let usePhoneCompass = false;    // real mode: always; demo mode: only if toggled on
+
+  function onAbsolute(e) {        // Android Chrome: compass
+    if (e.alpha == null) return;
+    sens.events++;
+    sens.compass = wrap360(360 - e.alpha);
+  }
+  function onOrientation(e) {
+    if (e.alpha == null) return;
+    sens.events++;
+    if (e.webkitCompassHeading != null) {          // iPhone: compass + gyro in one event
+      sens.compass = e.webkitCompassHeading;
+      sens.gyro = wrap360(360 - e.alpha);
+    } else if (!e.absolute) {                      // Android: gyro-based
+      sens.gyro = wrap360(360 - e.alpha);
+    } else if (sens.compass === null) {            // some phones send the compass here
+      sens.compass = wrap360(360 - e.alpha);
+    }
+    state.tilted = Math.abs(e.beta) > 35 || Math.abs(e.gamma) > 35;
+  }
+
+  // Must be called from inside a tap (iPhone permission rule).
+  async function startCompass() {
+    if (sens.listening) return true;
+    try {
+      if (typeof DeviceOrientationEvent !== 'undefined' &&
+          typeof DeviceOrientationEvent.requestPermission === 'function') {
+        const answer = await DeviceOrientationEvent.requestPermission();
+        if (answer !== 'granted') return false;
+      }
+    } catch (e) { /* not from a tap, or not https: just try listening anyway */ }
+    if ('ondeviceorientationabsolute' in window) window.addEventListener('deviceorientationabsolute', onAbsolute);
+    window.addEventListener('deviceorientation', onOrientation);
+    sens.listening = true;
+    sens.startedAt = performance.now();
+    return true;
+  }
+
+  function lockNorth() {
+    if (sens.compass === null || sens.gyro === null) return false;
+    sens.offset = sens.compass - sens.gyro;
+    return true;
+  }
+
+  function applyHeading() {
+    if (!usePhoneCompass) return;
+    if (sens.offset !== null && sens.gyro !== null) {
+      state.heading = wrap360(sens.gyro + sens.offset);
+      state.locked = true;
+    } else if (sens.compass !== null) {
+      state.heading = sens.compass;
+      state.locked = false;
+    }
+  }
+
+  $('lockBtn').addEventListener('click', () => {
+    $('lockBtn').textContent = lockNorth() ? '🧭 Locked ✓' : '🧭 No compass yet';
+    setTimeout(() => { $('lockBtn').textContent = state.locked ? '🧭 Re-lock north' : '🧭 Lock north'; }, 1500);
+  });
+
+  // ===================================================================
+  // START
+  // ===================================================================
+  $('startReal').addEventListener('click', async () => {
+    const ok = await startCompass();        // first thing in the tap
+    if (!ok) {
+      $('startErr').innerHTML = 'Motion access was denied. Reload and tap Allow, or use demo mode.';
+      return;
+    }
+    mode = 'real';
+    usePhoneCompass = true;
+    startLocation();                        // js/location.js (calls updateDistance on every fix)
+    $('demoPanel').classList.add('hidden');
+    $('lockBtn').classList.remove('hidden');
+    begin();
+  });
+
+  $('startDemo').addEventListener('click', async () => {
+    startCompass();                         // so "Phone compass" works in demo mode too
+    mode = 'demo';
+    usePhoneCompass = false;
+    state.lat = DEMO_START.lat; state.lon = DEMO_START.lon; state.accuracy = 5;
+    state.heading = 0;
+    $('demoPanel').classList.remove('hidden');
+    $('lockBtn').classList.add('hidden');
+    begin();
+  });
+
+  let looping = false;
+  function begin() {
+    show('search');
+    if (!looping) { looping = true; requestAnimationFrame(frame); }
+  }
+
+  // ===================================================================
+  // SEARCH
+  // ===================================================================
+  function formatDistance(m) { return m < 1000 ? Math.round(m) + ' m' : (m / 1000).toFixed(1) + ' km'; }
+  const q = $('q');
+  let listSig = '', lastListAt = 0;
+
+  function renderList(force) {
+    const results = searchBuildings(q.value, state.lat, state.lon);   // js/search.js
+    const ratings = store.get('cc.ratings', {});
+    const sig = q.value + '|' + results.map((r) => r.building.id + (r.distance == null ? '' : formatDistance(r.distance))).join(',') +
+                '|' + Object.keys(ratings).join(',');
+    if (!force && sig === listSig) return;
+    listSig = sig;
+
+    $('listHead').textContent = q.value.trim() === ''
+      ? (state.lat === null ? 'All buildings' : 'Closest to you')
+      : results.length + (results.length === 1 ? ' match' : ' matches');
+
+    const list = $('list');
+    list.textContent = '';
+    if (results.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'empty';
+      empty.textContent = 'No building matches "' + q.value + '". Try part of the name, or a code like CAB.';
+      list.appendChild(empty);
+      return;
+    }
+    for (const { building, distance } of results) {
+      const row = document.createElement('button');
+      row.className = 'place';
+      row.dataset.id = building.id;
+
+      const n = document.createElement('span');
+      n.className = 'n';
+      n.textContent = building.name + (building.code ? ' (' + building.code + ')' : '');
+      const notes = [];
+      if (ratings[building.id]) notes.push('★'.repeat(ratings[building.id].stars) + ' you rated');
+      if (building.washroom) notes.push('🚻 washrooms');
+      if (building.entrances.length === 0) notes.push('doors not mapped yet');
+      if (notes.length) {
+        const small = document.createElement('small');
+        small.textContent = notes.join(' · ');
+        n.appendChild(small);
+      }
+      row.appendChild(n);
+      if (distance != null) {
+        const d = document.createElement('span');
+        d.className = 'd';
+        d.textContent = formatDistance(distance);
+        row.appendChild(d);
+      }
+      list.appendChild(row);
+    }
+  }
+  q.addEventListener('input', () => renderList(true));
+  $('list').addEventListener('click', (e) => {
+    const row = e.target.closest('.place');
+    if (!row) return;
+    const b = BUILDINGS.find((x) => x.id === row.dataset.id);
+    if (b) startGuiding(b, 'Guiding to');
+  });
+  $('wcBtn').addEventListener('click', () => {
+    if (state.lat === null) { $('wcBtn').textContent = 'Waiting for GPS…'; setTimeout(() => $('wcBtn').textContent = '🚻 Nearest washroom', 1800); return; }
+    const found = findNearestWashroom(state.lat, state.lon);     // js/distance.js
+    if (found) startGuiding(found.building, 'Nearest washroom');
+  });
+
+  // ===================================================================
+  // GUIDE
+  // ===================================================================
+  let askedRatingFor = null;
+  function startGuiding(building, kind) {
+    q.blur();
+    setDestination(building);                 // js/distance.js
+    askedRatingFor = null;
+    $('destKind').textContent = kind;
+    $('destName').textContent = building.name;
+    $('destCode').textContent = building.code || '';
+    $('destCode').style.display = building.code ? '' : 'none';
+    $('target').textContent = kind === 'Nearest washroom' ? '🚻' : '🏛️';
+    show('guide');
+  }
+  function stopGuiding() { clearDestination(); setWalking(false); }
+  $('backBtn').addEventListener('click', () => { stopGuiding(); show('search'); });
+  $('rateBtn').addEventListener('click', () => { if (state.destination) openSheet(state.destination, 'Rate'); });
+
+  function hintFor(a) {
+    const abs = Math.abs(a), side = a < 0 ? 'left' : 'right';
+    if (abs <= ON_COURSE_DEG) return 'Straight ahead 🏃';
+    if (abs <= 60) return 'Slightly ' + side;
+    if (abs <= 135) return 'Turn ' + side;
+    return 'Behind you, turn around';
+  }
+
+  function warning() {
+    if (state.locationError === 'denied') return 'Location is blocked. Allow it in your settings, then reload.';
+    if (state.lat === null) return 'Waiting for GPS… step outside, away from walls.';
+    if (usePhoneCompass && sens.events === 0 && performance.now() - sens.startedAt > 3000)
+      return 'No compass data. Android Chrome: ⋮ → Settings → Site settings → Motion sensors → Allow, then reload.';
+    if (usePhoneCompass && state.tilted) return '📱 Hold your phone flat';
+    if (mode === 'real' && !state.locked) return 'Tip: tap Lock north somewhere open for a steadier radar.';
+    if (mode === 'real' && state.accuracy > WEAK_GPS_M) return 'GPS is weak here. Distance may be off.';
+    return '';
+  }
+
+  const radar = $('radar'), target = $('target');
+  function renderGuide() {
+    const t = state.target, waiting = !t || state.distance === null;
+    if (!t) $('destSub').textContent = 'Finding the closest entrance…';
+    else if (t.approx) $('destSub').textContent = 'Doors not mapped yet: guiding you to the nearest wall';
+    else {
+      const count = state.destination.entrances.length;
+      $('destSub').textContent = 'Closest entrance' + (t.main ? ' · main' : '') + (t.wheelchair ? ' · ♿ accessible' : '') +
+                                 (count > 1 ? ' · 1 of ' + count + ' doors' : '');
     }
 
-    if(theme === "dark"){
-        root.setProperty("--green","#22C55E");
-        root.setProperty("--gold","#FACC15");
-        root.setProperty("--cream","#020617");
-        root.setProperty("--card","#111827");
-        root.setProperty("--sweep","rgba(34,197,94,.75)");
+    // Target on the rim of the radar at relAngle (0 = top = straight ahead)
+    const R = radar.clientWidth / 2 - 34;
+    const a = state.relAngle * Math.PI / 180;
+    target.style.transform = `translate(-50%, -50%) translate(${R * Math.sin(a)}px, ${-R * Math.cos(a)}px)`;
+
+    const onCourse = !waiting && !state.arrived && Math.abs(state.relAngle) <= ON_COURSE_DEG;
+    app.classList.toggle('oncourse', onCourse);
+    app.classList.toggle('arrived', !!state.arrived);
+
+    if (waiting) {
+      $('distNum').textContent = '--'; $('distUnit').textContent = 'm'; $('eta').textContent = '';
+      $('hint').textContent = 'Getting your position…';
+    } else if (state.arrived) {
+      $('distNum').textContent = "You're here"; $('distUnit').textContent = ''; $('eta').textContent = '';
+      $('hint').textContent = t.approx ? 'Look for the nearest door.' : 'The entrance is right here.';
+      if (askedRatingFor !== state.destination.id) {          // ask once per trip
+        askedRatingFor = state.destination.id;
+        if (navigator.vibrate) navigator.vibrate([80, 40, 200]);
+        const b = state.destination;
+        setTimeout(() => { if (state.arrived && state.destination === b) openSheet(b, 'You made it! How was'); }, 1200);
+      }
+    } else {
+      const km = state.distance >= 1000;
+      $('distNum').textContent = km ? (state.distance / 1000).toFixed(1) : Math.round(state.distance);
+      $('distUnit').textContent = km ? 'km' : 'm';
+      $('eta').textContent = 'about ' + Math.max(1, Math.round(state.distance / WALK_SPEED_MPS / 60)) + ' min walk';
+      $('hint').textContent = hintFor(state.relAngle);
     }
+    $('toast').textContent = state.arrived ? '' : warning();
+  }
 
-    if(theme === "matrix"){
-        root.setProperty("--green","#00FF66");
-        root.setProperty("--gold","#00FF66");
-        root.setProperty("--cream","#000000");
-        root.setProperty("--card","#000000");
-        root.setProperty("--sweep","rgba(0,255,102,.85)");
+  // ===================================================================
+  // DEMO CONTROLS (like the team's ?demo)
+  // ===================================================================
+  let walking = false, autoSteer = false;
+  function setWalking(on) {
+    walking = on;
+    $('demoWalk').classList.toggle('on', on);
+    $('demoWalk').textContent = on ? '⏸ Stop' : '▶ Walk';
+  }
+  $('demoTurn').addEventListener('input', (e) => { if (!usePhoneCompass) state.heading = +e.target.value; });
+  $('demoWalk').addEventListener('click', () => setWalking(!walking));
+  $('demoAuto').addEventListener('click', () => { autoSteer = !autoSteer; $('demoAuto').classList.toggle('on', autoSteer); });
+  $('demoPhone').addEventListener('click', () => {
+    usePhoneCompass = !usePhoneCompass;
+    $('demoPhone').classList.toggle('on', usePhoneCompass);
+    if (usePhoneCompass) { autoSteer = false; $('demoAuto').classList.remove('on'); }
+  });
+  $('demoReset').addEventListener('click', () => {
+    setWalking(false);
+    state.lat = DEMO_START.lat; state.lon = DEMO_START.lon;
+    askedRatingFor = null;
+    updateDistance();
+  });
+
+  function demoTick(dt) {
+    if (autoSteer && !usePhoneCompass && state.bearing !== null && state.target) {
+      const diff = ((state.bearing - state.heading + 540) % 360) - 180;
+      state.heading = wrap360(state.heading + Math.max(-120 * dt, Math.min(120 * dt, diff)));
     }
-
-    if(theme === "retro"){
-        root.setProperty("--green","#8B4513");
-        root.setProperty("--gold","#FFD700");
-        root.setProperty("--cream","#FDF6E3");
-        root.setProperty("--card","#FFFDF5");
-        root.setProperty("--sweep","rgba(255,215,0,.75)");
+    $('demoTurn').value = Math.round(state.heading);
+    $('demoHead').textContent = 'facing ' + Math.round(state.heading) + '°' + (usePhoneCompass ? ' (phone)' : '');
+    if (walking && !state.arrived) {
+      const m = DEMO_SPEED_MPS * dt, r = state.heading * Math.PI / 180;
+      state.lat += (m * Math.cos(r)) / 111320;
+      state.lon += (m * Math.sin(r)) / (111320 * Math.cos(state.lat * Math.PI / 180));
+      updateDistance();
     }
+    if (state.arrived && walking) setWalking(false);
+  }
 
-    if(theme === "ocean"){
-        root.setProperty("--green","#0284C7");
-        root.setProperty("--gold","#67E8F9");
-        root.setProperty("--cream","#E0F2FE");
-        root.setProperty("--card","#FFFFFF");
-        root.setProperty("--sweep","rgba(103,232,249,.85)");
-    }
-}
+  // ===================================================================
+  // MY RATINGS (stored only on this phone, no server)
+  // ===================================================================
+  const TAGS = ['✨ Clean', '🧻 Stocked', '🤫 Quiet', '👥 Busy', '♿ Accessible', '🚻 All-gender', '⚠️ Needs work'];
+  let sheetBuilding = null, sheetStars = 0, sheetTags = new Set();
 
-document.querySelectorAll("[data-theme]").forEach(btn => {
+  const starPick = $('starPick');
+  for (let i = 1; i <= 5; i++) {
+    const b = document.createElement('button');
+    b.textContent = '⭐';
+    b.setAttribute('aria-label', i + ' star' + (i > 1 ? 's' : ''));
+    b.addEventListener('click', () => { sheetStars = i; paintStars(); $('sheetErr').textContent = ''; });
+    starPick.appendChild(b);
+  }
+  function paintStars() { [...starPick.children].forEach((b, i) => b.classList.toggle('lit', i < sheetStars)); }
 
-    btn.addEventListener("click", () => {
-
-        document
-            .querySelectorAll("[data-theme]")
-            .forEach(b => b.classList.remove("active"));
-
-        btn.classList.add("active");
-
-        setTheme(btn.dataset.theme);
+  const chips = $('chips');
+  for (const tag of TAGS) {
+    const c = document.createElement('button');
+    c.className = 'chip';
+    c.textContent = tag;
+    c.addEventListener('click', () => {
+      if (sheetTags.has(tag)) sheetTags.delete(tag); else sheetTags.add(tag);
+      c.classList.toggle('on', sheetTags.has(tag));
     });
+    chips.appendChild(c);
+  }
 
-});
+  function openSheet(building, kind) {
+    const existing = store.get('cc.ratings', {})[building.id];
+    sheetBuilding = building;
+    sheetStars = existing ? existing.stars : 0;
+    sheetTags = new Set(existing ? existing.tags : []);
+    $('note').value = existing ? existing.note : '';
+    $('sheetKind').textContent = existing ? 'Update your rating' : kind;
+    $('sheetName').textContent = building.name + (kind.endsWith('was') ? '?' : '');
+    $('sheetErr').textContent = '';
+    paintStars();
+    [...chips.children].forEach((c) => c.classList.toggle('on', sheetTags.has(c.textContent)));
+    $('sheetWrap').classList.remove('hidden');
+  }
+  function closeSheet() { $('sheetWrap').classList.add('hidden'); }
+  $('sheetCancel').addEventListener('click', closeSheet);
+  $('sheetWrap').addEventListener('click', (e) => { if (e.target === $('sheetWrap')) closeSheet(); });
+  $('sheetSave').addEventListener('click', () => {
+    if (!sheetStars) { $('sheetErr').textContent = 'Tap a star first.'; return; }
+    const all = store.get('cc.ratings', {});
+    all[sheetBuilding.id] = { stars: sheetStars, tags: [...sheetTags], note: $('note').value.trim(), at: Date.now() };
+    store.set('cc.ratings', all);
+    closeSheet();
+    $('rateBtn').textContent = '⭐ Saved ✓';
+    setTimeout(() => { $('rateBtn').textContent = '⭐ Rate this place'; }, 1500);
+    if (screen === 'ratings') renderRatings();
+  });
 
-document.getElementById("randomTheme")
-.addEventListener("click", () => {
+  function renderRatings() {
+    const all = store.get('cc.ratings', {});
+    const entries = Object.entries(all)
+      .map(([id, r]) => ({ r, b: BUILDINGS.find((x) => x.id === id) }))
+      .filter((e) => e.b)
+      .sort((x, y) => y.r.at - x.r.at);
 
-    document
-    .querySelectorAll("[data-theme]")
-    .forEach(b => b.classList.remove("active"));
+    const avg = entries.length ? entries.reduce((s, e) => s + e.r.stars, 0) / entries.length : 0;
+    $('ratingsSummary').textContent = entries.length
+      ? entries.length + ' place' + (entries.length > 1 ? 's' : '') + ' rated · average ' + avg.toFixed(1) + ' ★ · saved on this phone only'
+      : 'Nothing rated yet. Arrive somewhere and you\'ll be asked, or tap ⭐ Rate this place.';
 
-    const hue =
-        Math.floor(Math.random() * 360);
+    const list = $('ratingList');
+    list.textContent = '';
+    for (const { r, b } of entries) {
+      const card = document.createElement('div');
+      card.className = 'rating';
 
-    const root =
-        document.documentElement.style;
+      const top = document.createElement('div');
+      top.className = 'top';
+      const name = document.createElement('span');
+      name.textContent = b.name;
+      const stars = document.createElement('span');
+      stars.className = 'stars-mini';
+      stars.textContent = '★'.repeat(r.stars) + '☆'.repeat(5 - r.stars);
+      top.append(name, stars);
+      card.appendChild(top);
 
-    root.setProperty(
-        "--green",
-        `hsl(${hue},70%,40%)`
-    );
+      if (r.tags.length) {
+        const tags = document.createElement('div');
+        tags.className = 'tags';
+        for (const t of r.tags) { const s = document.createElement('span'); s.className = 'tag'; s.textContent = t; tags.appendChild(s); }
+        card.appendChild(tags);
+      }
+      if (r.note) { const n = document.createElement('div'); n.className = 'note'; n.textContent = '“' + r.note + '”'; card.appendChild(n); }
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+      meta.textContent = new Date(r.at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+      card.appendChild(meta);
 
-    root.setProperty(
-        "--gold",
-        `hsl(${(hue+60)%360},90%,60%)`
-    );
+      const acts = document.createElement('div');
+      acts.className = 'acts';
+      const go = document.createElement('button'); go.className = 'btn'; go.textContent = '🧭 Go';
+      go.addEventListener('click', () => { if (mode) startGuiding(b, 'Guiding to'); else show('start'); });
+      const edit = document.createElement('button'); edit.className = 'btn'; edit.textContent = '✏️ Edit';
+      edit.addEventListener('click', () => openSheet(b, 'Rate'));
+      const del = document.createElement('button'); del.className = 'btn'; del.textContent = '🗑️ Delete';
+      del.addEventListener('click', () => {
+        if (del.dataset.sure) { const a = store.get('cc.ratings', {}); delete a[b.id]; store.set('cc.ratings', a); renderRatings(); }
+        else { del.dataset.sure = '1'; del.textContent = 'Tap again'; setTimeout(() => { delete del.dataset.sure; del.textContent = '🗑️ Delete'; }, 2000); }
+      });
+      acts.append(go, edit, del);
+      card.appendChild(acts);
+      list.appendChild(card);
+    }
+  }
 
-    root.setProperty(
-        "--cream",
-        `hsl(${hue},35%,92%)`
-    );
+  // ===================================================================
+  // MAIN LOOP
+  // ===================================================================
+  const themeToggle =
+    document.getElementById("themeToggle");
 
-    root.setProperty(
-        "--card",
-        "#FFFFFF"
-    );
+const themeList =
+    document.getElementById("themeList");
 
-    root.setProperty(
-        "--sweep",
-        `hsla(${(hue+60)%360},90%,60%,.8)`
-    );
+themeToggle.addEventListener(
+    "click",
+    () => {
 
-});
+        themeList.classList.toggle("open");
+
+        themeToggle.textContent =
+            themeList.classList.contains("open")
+            ? "🎨 Themes ▲"
+            : "🎨 Themes ▼";
+
+    }
+);
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min(0.1, (now - last) / 1000);
+    last = now;
+    applyHeading();
+    if (mode === 'demo') demoTick(dt);
+    updateAngle();                                   // js/angle.js
+    if (screen === 'guide') renderGuide();
+    if (screen === 'search' && now - lastListAt > 3000) { lastListAt = now; renderList(false); }
+    requestAnimationFrame(frame);
+  }
+})();
 </script>
-
 </body>
 </html>
