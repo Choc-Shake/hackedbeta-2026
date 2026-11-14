@@ -3,253 +3,277 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#07110b">
+<meta name="theme-color" content="#347BC2">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Campus Compass</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;700;800;900&display=swap" rel="stylesheet">
 <style>
 /* ------------------------------------------------------------------
-   Campus Compass. Three screens inside .app, one shown at a time:
-   #start (permissions) -> #search (pick a building) -> #guide (arrow)
+   Campus Compass, radar edition. One screen: the radar.
+   Swipe around it to turn the dial, tap it to lock on, triple-tap it
+   for the nearest washroom. Search slides up only when asked for.
+   Design: Figma file "Campus Compass — Radar redesign", page "v2 Dial only".
    ------------------------------------------------------------------ */
 :root{
-  --bg:#07110b; --bg2:#0c1a12; --surface:#102017; --surface2:#16301f;
-  --line:rgba(160,255,170,.12); --line2:rgba(160,255,170,.22);
-  --txt:#eaf7ec; --mut:#93b39d; --dim:#688573;
-  --lime:#7dff5c; --lime2:#3fdc2f;
-  --amber:#ffcc4d; --red:#ff7b6e;
-  --font:"Bricolage Grotesque",ui-rounded,system-ui,-apple-system,sans-serif;
+  --out:#14201B; --ink:#1F2B25; --mut:#4E5B54; --green:#1F9A4A; --green-d:#17803D;
+  --plastic:#E7EBE7; --paper:#FFFFFF; --field:#F1F3EF; --rule:#D3D8D4;
+  --yellow:#FFF3A6; --red:#F2392B;
+  --sky1:#347BC2; --sky2:#6FAEE3; --sky3:#B3DBF5; --navy:#16406B;
+  --font:"Nunito",ui-rounded,system-ui,-apple-system,sans-serif;
+  --safe-t:env(safe-area-inset-top,0px); --safe-b:env(safe-area-inset-bottom,0px);
+  /* radar width: fits the width, and leaves room below for the card and search */
+  --rw:min(calc(100vw - 48px), 400px, calc((100dvh - var(--safe-t) - var(--safe-b) - 330px) * 340 / 370));
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;height:100%}
-body{background:#030805;color:var(--txt);font-family:var(--font);
-  -webkit-font-smoothing:antialiased;overscroll-behavior:none}
+html,body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none}
+body{background:var(--sky1);color:var(--ink);font-family:var(--font);-webkit-font-smoothing:antialiased;
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;padding:0}
-button:focus-visible,input:focus-visible{outline:2px solid var(--lime);outline-offset:2px}
+:focus-visible{outline:3px solid var(--yellow);outline-offset:3px}
+[hidden]{display:none!important}
 
-.app{position:relative;max-width:440px;height:100dvh;margin:0 auto;overflow:hidden;
-  background:radial-gradient(600px 380px at 50% 30%,rgba(125,255,92,.09),transparent 70%),
-             linear-gradient(180deg,var(--bg2),var(--bg))}
-.screen{position:absolute;inset:0;display:none;flex-direction:column;
-  padding:calc(env(safe-area-inset-top) + 14px) 18px calc(env(safe-area-inset-bottom) + 14px)}
-.screen.show{display:flex}
+/* outlined white text, like a cel caption */
+.outlined{color:#fff;text-shadow:
+  0 2px 0 var(--out),2px 0 0 var(--out),0 -2px 0 var(--out),-2px 0 0 var(--out),
+  1.5px 1.5px 0 var(--out),-1.5px 1.5px 0 var(--out),1.5px -1.5px 0 var(--out),-1.5px -1.5px 0 var(--out),
+  0 3.5px 0 var(--out)}
 
-/* ---------- shared pieces ---------- */
-.cta{width:100%;min-height:56px;border-radius:17px;font-size:18px;font-weight:800;
-  display:flex;align-items:center;justify-content:center;gap:9px;transition:transform .12s}
-.cta:active{transform:scale(.98)}
-.cta.primary{background:linear-gradient(180deg,#9bff7e,var(--lime2));color:#06260b;
-  box-shadow:0 8px 24px rgba(125,255,92,.25),inset 0 1px 0 rgba(255,255,255,.5)}
-.cta.ghost{background:var(--surface2);box-shadow:inset 0 0 0 1px var(--line2)}
-.cta:disabled{opacity:.45}
-.pill{display:inline-flex;align-items:center;gap:7px;padding:7px 11px;border-radius:99px;
-  font-size:13px;font-weight:700;background:var(--surface);box-shadow:inset 0 0 0 1px var(--line);
-  color:var(--mut);white-space:nowrap}
-.pill i{width:8px;height:8px;border-radius:50%;background:var(--dim)}
-.pill.good i{background:var(--lime);box-shadow:0 0 8px var(--lime)}
-.pill.weak i{background:var(--amber);box-shadow:0 0 8px var(--amber)}
-.pill.bad i{background:var(--red)}
-.code{font-size:12px;font-weight:800;letter-spacing:.5px;padding:3px 7px;border-radius:7px;
-  background:rgba(125,255,92,.12);color:var(--lime);white-space:nowrap}
+.app{position:fixed;inset:0;overflow:hidden;
+  background:linear-gradient(180deg,var(--sky1) 0%,var(--sky2) 55%,var(--sky3) 100%)}
 
-/* ---------- start screen ---------- */
-#start{align-items:center;text-align:center;padding-left:28px;padding-right:28px}
-#start .logo{margin-top:9dvh;width:104px;height:104px}
-#start h1{font-size:42px;margin:18px 0 8px;letter-spacing:-1.6px;font-weight:800;line-height:1}
-#start h1 b{color:var(--lime)}
-#start p{margin:0;color:var(--mut);font-size:17px;line-height:1.45;max-width:300px}
-.steps{margin:26px 0 0;display:grid;gap:10px;width:100%;text-align:left}
-.step{display:flex;gap:12px;align-items:center;padding:12px 14px;border-radius:16px;
-  background:var(--surface);box-shadow:inset 0 0 0 1px var(--line);font-size:14px;color:var(--mut)}
-.step b{color:var(--txt);display:block;font-size:16px}
-.step .e{font-size:22px;width:30px;text-align:center}
-#start .bottom{margin-top:auto;width:100%}
-.err{margin-top:10px;font-size:14px;color:var(--red);min-height:18px;line-height:1.4}
-.err a{color:var(--lime);font-weight:700}
-.fine{margin-top:8px;font-size:12px;color:var(--dim)}
+/* ---------- sky ---------- */
+.cloud{position:absolute;pointer-events:none}
+.cloud.c1{width:340px;left:-95px;bottom:9%}
+.cloud.c2{width:230px;right:-40px;bottom:27%}
+.cloud.c3{width:150px;left:-40px;top:17%}
+.cloud.c4{width:200px;right:8%;top:6%;display:none}
 
-/* ---------- search screen ---------- */
-.top{display:flex;align-items:center;justify-content:space-between;gap:10px;flex:none}
-.brand{font-weight:800;font-size:22px;letter-spacing:-.6px}
-.brand b{color:var(--lime)}
-.searchbox{position:relative;margin-top:14px;flex:none}
-.searchbox input{width:100%;height:54px;border-radius:16px;border:0;padding:0 44px 0 46px;
-  font:600 17px var(--font);color:var(--txt);background:var(--surface);
-  box-shadow:inset 0 0 0 1px var(--line2);-webkit-appearance:none;appearance:none}
-.searchbox input::placeholder{color:var(--dim)}
-.searchbox input::-webkit-search-cancel-button{display:none}
-.searchbox svg{position:absolute;left:16px;top:17px;color:var(--mut)}
-.searchbox .clear{position:absolute;right:6px;top:6px;width:42px;height:42px;border-radius:12px;
-  color:var(--mut);font-size:20px;display:none}
-.searchbox.has .clear{display:block}
-#wcBtn{margin-top:10px;flex:none;min-height:52px;font-size:16px}
-.listhead{margin:16px 2px 6px;font-size:12px;font-weight:800;letter-spacing:1.1px;
-  text-transform:uppercase;color:var(--dim);flex:none}
-.list{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;margin:0 -6px;padding:0 6px 8px}
-.row{width:100%;display:flex;align-items:center;gap:10px;padding:13px 12px;text-align:left;
-  min-height:56px}
-.row + .row{box-shadow:0 -1px 0 var(--line)}
-.row:active{background:var(--surface2)}
-.row .n{flex:1;min-width:0;font-size:16px;font-weight:700;line-height:1.25}
-.row .n small{display:block;font-size:12px;font-weight:500;color:var(--dim);margin-top:2px}
-.row .d{font-size:14px;font-weight:700;color:var(--mut);white-space:nowrap;font-variant-numeric:tabular-nums}
-.empty{padding:28px 10px;text-align:center;color:var(--mut);font-size:15px;line-height:1.5}
-.credit{flex:none;padding-top:8px;font-size:11px;color:var(--dim);text-align:center}
-.credit a{color:var(--mut)}
+/* ---------- top bar ---------- */
+.top{position:absolute;left:0;right:0;top:calc(var(--safe-t) + 8px);padding:0 20px;
+  display:flex;align-items:center;gap:10px;z-index:3}
+.wordmark{display:none;margin:0;font-size:30px;font-weight:900;letter-spacing:-.6px}
+.pill,.tag{display:inline-flex;align-items:center;gap:7px;padding:6px 13px 6px 11px;border-radius:16px;
+  background:var(--paper);border:2.5px solid var(--out);box-shadow:0 3px 0 var(--out);
+  font-size:13px;font-weight:800;color:var(--ink);white-space:nowrap}
+.pill{margin-left:auto}
+.tag{background:var(--yellow)}
+.led{width:9px;height:9px;border-radius:50%;background:#C3C9C5;border:1.5px solid var(--out);flex:none}
+.led.good{background:#3DDC6A}.led.weak{background:#FFC93A}.led.bad{background:#F04A3A}
 
-/* ---------- guide screen ---------- */
-.back{width:44px;height:44px;border-radius:14px;background:var(--surface);
-  box-shadow:inset 0 0 0 1px var(--line);font-size:20px;display:grid;place-items:center}
-.dest{margin-top:12px;padding:13px 15px;border-radius:18px;flex:none;
-  background:linear-gradient(180deg,var(--surface2),var(--surface));box-shadow:inset 0 0 0 1px var(--line)}
-.dest .k{font-size:11px;letter-spacing:1.2px;text-transform:uppercase;color:var(--dim);font-weight:800}
-.dest .n{display:flex;align-items:center;gap:8px;margin-top:2px;font-size:19px;font-weight:800;
-  letter-spacing:-.3px;line-height:1.2}
-.dest .s{margin-top:4px;font-size:13px;color:var(--mut)}
-.dest .s.note{color:var(--amber)}
+/* ---------- stage ---------- */
+.stage{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
+  padding:calc(var(--safe-t) + 46px) 24px calc(var(--safe-b) + 84px)}
+.radar{position:relative;width:var(--rw);aspect-ratio:340/370;flex:none;touch-action:none;cursor:grab;outline:none}
+.radar:active{cursor:grabbing}
+.radar svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.radar:focus-visible{outline:none}
+.radar:focus-visible svg .glass-outline{stroke:var(--yellow)}
+.crown{position:absolute;left:50%;top:-10px;width:30%;height:16%;transform:translateX(-50%);border-radius:14px;z-index:2}
 
-.stage{flex:1;min-height:0;display:grid;place-items:center;position:relative}
-.dial{position:relative;width:min(100%,46dvh,330px);aspect-ratio:1}
-.dial svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
-#rose{transform-origin:50% 50%;will-change:transform}
-#arrow{transform-origin:50% 50%;will-change:transform;color:var(--lime);
-  filter:drop-shadow(0 6px 14px rgba(0,0,0,.5));transition:color .2s,opacity .2s}
-.oncourse #arrow{filter:drop-shadow(0 0 22px rgba(125,255,92,.75))}
-.waiting #arrow{opacity:.25}
-.dial .face{position:absolute;inset:9%;border-radius:50%;
-  background:radial-gradient(circle at 50% 40%,#1b3a26,#0d1d14 70%);
-  box-shadow:inset 0 0 0 1px var(--line2),0 20px 50px rgba(0,0,0,.5)}
-.oncourse .dial .face{box-shadow:inset 0 0 0 2px rgba(125,255,92,.6),0 0 60px rgba(125,255,92,.18)}
-#check{display:none;position:absolute;inset:0;place-items:center;font-size:110px;color:var(--lime);font-weight:800}
-.arrived #check{display:grid}
-.arrived #arrow{display:none}
-.arrived .dial .face{box-shadow:inset 0 0 0 3px var(--lime),0 0 80px rgba(125,255,92,.3);
-  animation:pulse 1.2s ease-in-out infinite alternate}
-@keyframes pulse{to{transform:scale(1.03)}}
+.side{width:100%;max-width:400px;display:flex;flex-direction:column;align-items:center;gap:14px;margin-top:18px}
+.intro{text-align:center;display:flex;flex-direction:column;gap:10px;align-items:center}
+.intro h2{margin:0;font-size:36px;font-weight:900;letter-spacing:-.8px;line-height:1.05}
+.intro .fine{margin:0;font-size:13px;font-weight:700;color:var(--navy);max-width:300px;line-height:1.45}
+.intro .err{margin:0;font-size:14px;font-weight:800;color:#7A1B12;background:#FFE3DF;border:2.5px solid var(--out);
+  border-radius:14px;padding:9px 12px;line-height:1.4;box-shadow:3px 4px 0 var(--out)}
+.intro .err a{color:inherit}
 
-.toast{position:absolute;left:50%;bottom:4px;transform:translateX(-50%);max-width:100%;
-  padding:10px 14px;border-radius:14px;font-size:14px;font-weight:700;text-align:center;
-  background:rgba(34,27,6,.95);color:var(--amber);box-shadow:inset 0 0 0 1px rgba(255,204,77,.35);
-  opacity:0;pointer-events:none;transition:opacity .2s}
-.toast.show{opacity:1}
+.card{width:100%;background:var(--paper);border:3px solid var(--out);border-radius:20px;box-shadow:4px 5px 0 var(--out);
+  padding:14px 18px 16px;display:flex;flex-direction:column;gap:4px;user-select:text;-webkit-user-select:text}
+.kicker{margin:0;font-size:13px;font-weight:800;color:var(--green)}
+.name-row{display:flex;gap:10px;align-items:flex-start}
+.name{margin:0;flex:1;min-width:0;font-size:20px;font-weight:800;line-height:1.25;letter-spacing:-.2px}
+.code{flex:none;margin-top:2px;font-size:12px;font-weight:900;letter-spacing:.5px;color:#fff;background:var(--green);
+  border:2px solid var(--out);border-radius:8px;padding:2px 8px}
+.sub{margin:0;font-size:15px;font-weight:700;color:var(--mut);line-height:1.45}
+.dist-row{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;padding-top:2px}
+.dist{margin:0;font-size:40px;line-height:1;font-weight:900;letter-spacing:-1.2px;font-variant-numeric:tabular-nums}
+.dist small{font-size:17px;font-weight:800;color:var(--mut);letter-spacing:0;margin-left:4px}
+.eta{margin:0;font-size:14px;font-weight:700;color:var(--mut);padding-bottom:3px;text-align:right}
+.card.big .dist{font-size:50px}
+.card.here .name{font-size:36px;font-weight:900;color:var(--green-d);letter-spacing:-.8px;line-height:1.1}
 
-.sheet{flex:none;padding:16px 18px;border-radius:26px;
-  background:linear-gradient(180deg,rgba(22,44,30,.95),rgba(14,30,20,.98));
-  box-shadow:inset 0 0 0 1px var(--line)}
-.dist{font-weight:800;font-size:60px;line-height:.9;letter-spacing:-2.5px;font-variant-numeric:tabular-nums}
-.dist small{font-size:22px;letter-spacing:0;color:var(--mut);margin-left:5px;font-weight:700}
-.readout{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
-.eta{font-size:14px;font-weight:700;color:var(--mut);text-align:right;padding-bottom:4px}
-.hint{margin-top:10px;font-size:17px;font-weight:700;color:var(--txt);min-height:22px}
-.arrived .dist,.arrived .hint{color:var(--lime)}
-#doneBtn{display:none;margin-top:12px}
-.arrived #doneBtn{display:flex}
+.hint{margin:0;font-size:15px;font-weight:800;line-height:1.5;text-align:center;max-width:342px;min-height:22px}
 
-/* ---------- demo controls (only with ?demo in the address) ---------- */
-#demo{display:none;flex:none;margin-top:10px;
-  padding:10px 12px;border-radius:16px;background:rgba(8,16,11,.94);
-  box-shadow:inset 0 0 0 1px rgba(255,204,77,.4);font-size:13px;color:var(--mut)}
-.demo #demo{display:block}
-#demo .t{display:flex;justify-content:space-between;font-weight:800;color:var(--amber);font-size:12px;
-  letter-spacing:.8px;text-transform:uppercase}
-#demo input[type=range]{width:100%;accent-color:var(--lime);margin:8px 0 6px}
-#demo .b{display:flex;gap:8px}
-#demo .b button{flex:1;min-height:40px;border-radius:11px;background:var(--surface2);
-  box-shadow:inset 0 0 0 1px var(--line2);font-weight:700;font-size:14px}
-#demo .b button.on{background:var(--lime);color:#06260b}
-@media (prefers-reduced-motion:reduce){.arrived .dial .face{animation:none}}
+.search-pill{position:fixed;left:50%;bottom:calc(var(--safe-b) + 18px);transform:translateX(-50%);
+  display:inline-flex;align-items:center;gap:9px;padding:11px 20px 11px 16px;border-radius:24px;
+  background:var(--paper);border:3px solid var(--out);box-shadow:0 4px 0 var(--out);font-size:16px;font-weight:800;
+  white-space:nowrap;z-index:3;transition:transform .08s}
+.search-pill:active{transform:translateX(-50%) translateY(3px);box-shadow:0 1px 0 var(--out)}
+.ico{width:18px;height:18px;flex:none}
+
+/* ---------- search sheet ---------- */
+.scrim{position:absolute;inset:0;z-index:4;display:none}
+.sheet-open .scrim{display:block}
+.sheet{position:absolute;left:-3px;right:-3px;bottom:0;z-index:5;height:min(56dvh,560px);
+  background:var(--paper);border:3px solid var(--out);border-bottom:0;border-radius:30px 30px 0 0;
+  box-shadow:0 -6px 0 rgba(20,32,27,.25);display:flex;flex-direction:column;
+  padding:12px 25px calc(var(--safe-b) + 8px);transform:translateY(105%);transition:transform .28s cubic-bezier(.2,.8,.2,1);
+  visibility:hidden;user-select:text;-webkit-user-select:text}
+.sheet-open .sheet{transform:none;visibility:visible}
+.grabber{align-self:center;width:44px;height:5px;border-radius:3px;background:#C3C9C5;margin-bottom:14px;flex:none;
+  box-sizing:content-box;padding:6px 30px;background-clip:content-box;cursor:grab;touch-action:none}
+.field{display:flex;align-items:center;gap:10px;padding:0 14px 0 16px;height:52px;border-radius:22px;flex:none;
+  background:var(--field);border:2.5px solid var(--out)}
+.field input{flex:1;min-width:0;border:0;background:none;outline:none;font:800 17px var(--font);color:var(--ink);
+  -webkit-appearance:none;appearance:none;padding:0}
+.field input::placeholder{color:#7C8882;font-weight:700}
+.field input::-webkit-search-cancel-button{display:none}
+.field:focus-within{border-color:var(--green);box-shadow:0 0 0 3px rgba(31,154,74,.25)}
+.clear{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;flex:none}
+.chips{display:flex;gap:8px;margin-top:14px;flex:none}
+.chip-toggle{display:inline-flex;align-items:center;gap:7px;padding:7px 14px 7px 11px;border-radius:16px;
+  background:var(--paper);border:2px solid var(--out);font-size:14px;font-weight:800}
+.chip-toggle[aria-pressed="true"]{background:var(--yellow)}
+.chip-toggle[aria-pressed="true"] .led{background:#3DDC6A}
+.results{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;margin:6px -6px 0;padding:0 6px}
+.row{width:100%;display:flex;align-items:center;gap:12px;padding:12px 2px;text-align:left;border-bottom:2px solid var(--rule)}
+.row:last-child{border-bottom:0}
+.row:active{background:var(--field)}
+.row .n{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.row .n b{font-size:17px;font-weight:800;line-height:1.3}
+.row .n span{display:flex;gap:10px;font-size:13px;font-weight:900;color:var(--green);letter-spacing:.4px}
+.row .n em{font-style:normal;font-weight:800;color:var(--mut);letter-spacing:0}
+.row .d{font-size:15px;font-weight:800;color:var(--mut);white-space:nowrap;font-variant-numeric:tabular-nums}
+.empty{padding:22px 4px;font-size:15px;font-weight:700;color:var(--mut);line-height:1.5}
+.credit{margin:6px 0 0;font-size:11px;font-weight:700;color:#7C8882;text-align:center;flex:none}
+.credit a{color:inherit}
+
+/* ---------- radar svg parts ---------- */
+.g-base{fill:#17803D}.g-lit{fill:#22A04F}.g-hl{fill:#4CCB77;opacity:.55}
+.grid line{stroke:#0A3F1E;stroke-width:2.5}
+[data-mode="off"] .g-base{fill:#0F3A21}[data-mode="off"] .g-lit{fill:#164A2B}[data-mode="off"] .g-hl{fill:#215E39}
+[data-mode="off"] .grid line{opacity:.6}[data-mode="off"] .glint{opacity:.35}
+[data-mode="off"] #you{display:none}
+[data-mode="arrived"] .g-base{fill:#22A04F}[data-mode="arrived"] .g-lit{fill:#33BC62}[data-mode="arrived"] .g-hl{fill:#7BE69C;opacity:.6}
+[data-mode="nosignal"] .g-base{fill:#145A30}[data-mode="nosignal"] .g-lit{fill:#1A6E3B}[data-mode="nosignal"] .g-hl{fill:#2A8A50}
+.blabel,.gtext{font-family:var(--font);font-weight:900;paint-order:stroke;stroke:var(--out);stroke-linejoin:round}
+.blabel{font-size:12px;fill:#FFF3A6;stroke-width:3}
+.gtext{fill:#D9F8C2;stroke-width:2.5;text-anchor:middle}
+#cap{transition:transform .08s}
+#cap.pressed{transform:translateY(5px)}
+#detents{transition:transform .18s ease-out}
+#detents.dragging{transition:none}
+#clickLines{opacity:0;transition:opacity .15s}
+#clickLines.on{opacity:1;transition:none}
+.pulse{transform-box:fill-box;transform-origin:center;animation:pulse 1.6s ease-out infinite}
+.pulse.p2{animation-delay:.53s}.pulse.p3{animation-delay:1.06s}
+@keyframes pulse{0%{transform:scale(.45);opacity:.95}100%{transform:scale(1.35);opacity:0}}
+#flash{opacity:0;pointer-events:none}
+#flash.go{animation:flash .9s ease-out}
+@keyframes flash{0%{opacity:.75}100%{opacity:0}}
+
+/* ---------- demo controls (index.html?demo only) ---------- */
+.demo{position:absolute;left:12px;bottom:calc(var(--safe-b) + 76px);z-index:3;display:flex;flex-direction:column;gap:6px;
+  background:var(--paper);border:2.5px solid var(--out);border-radius:14px;box-shadow:0 3px 0 var(--out);
+  padding:8px 10px;font-size:12px;font-weight:800;width:150px}
+.demo input{width:100%;accent-color:var(--green)}
+.demo button{border:2px solid var(--out);border-radius:10px;padding:5px 8px;font-weight:800;background:var(--field)}
+.demo button.on{background:var(--yellow)}
+
+/* ---------- desktop ---------- */
+@media (min-width:900px) and (min-height:560px){
+  .cloud.c1{width:520px;left:-80px;bottom:-4%}
+  .cloud.c2{width:420px;right:-60px;bottom:-2%}
+  .cloud.c3{width:320px;left:auto;right:4%;top:10%}
+  .cloud.c4{display:block;width:190px;left:36%;top:3%;right:auto}
+  .top{top:36px;padding:0 56px}
+  .wordmark{display:block}
+  .stage{flex-direction:row;justify-content:center;gap:72px;padding:90px 56px 56px}
+  .radar{--rw:min(600px,calc(100vh - 170px),calc(100vw - 560px));width:var(--rw);transform:rotate(-4deg)}
+  .side{width:400px;max-width:400px;align-items:flex-start;margin-top:0;gap:18px}
+  .intro{align-items:flex-start;text-align:left}
+  .hint{text-align:left;font-size:17px;max-width:400px}
+  .card{padding:18px 22px 20px}
+  .name{font-size:22px}
+  .dist{font-size:48px}
+  .search-pill{position:static;transform:none}
+  .search-pill:active{transform:translateY(3px)}
+  .sheet{left:auto;right:56px;width:440px;bottom:0;height:min(70vh,620px)}
+  .demo{bottom:24px}
+}
+@media (prefers-reduced-motion:reduce){
+  .pulse{animation:none;opacity:.5}.pulse.p2{opacity:.25}.pulse.p3{opacity:.1}
+  #flash.go{animation:none}.sheet,#detents{transition:none}
+}
 </style>
 </head>
 <body>
+<main class="app" id="app" data-mode="off">
 
-<main class="app" id="app">
+  <!-- sky -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="cloud" viewBox="0 0 320 135">
+      <g fill="#C3DDF3"><ellipse cx="70" cy="99" rx="70" ry="35"/><ellipse cx="135" cy="79" rx="65" ry="55"/><ellipse cx="220" cy="89" rx="60" ry="45"/><ellipse cx="270" cy="99" rx="50" ry="30"/></g>
+      <g fill="#FFFFFF"><ellipse cx="70" cy="80" rx="70" ry="30"/><ellipse cx="135" cy="57" rx="65" ry="47"/><ellipse cx="220" cy="69" rx="60" ry="39"/><ellipse cx="270" cy="81" rx="50" ry="26"/></g>
+    </symbol>
+  </svg>
+  <svg class="cloud c1" viewBox="0 0 320 135" aria-hidden="true"><use href="#cloud"/></svg>
+  <svg class="cloud c2" viewBox="0 0 320 135" aria-hidden="true"><use href="#cloud"/></svg>
+  <svg class="cloud c3" viewBox="0 0 320 135" aria-hidden="true"><use href="#cloud"/></svg>
+  <svg class="cloud c4" viewBox="0 0 320 135" aria-hidden="true"><use href="#cloud"/></svg>
 
-  <!-- ================= START: the tap here asks for compass + location ================= -->
-  <section class="screen show" id="start">
-    <svg class="logo" viewBox="0 0 100 100" aria-hidden="true">
-      <circle cx="50" cy="50" r="46" fill="#102017" stroke="rgba(160,255,170,.25)" stroke-width="2"/>
-      <path d="M50 14 L72 74 L50 62 L28 74 Z" fill="#7dff5c"/>
-    </svg>
-    <h1>Campus<b>Compass</b></h1>
-    <p>Pick a UAlberta building. Follow the arrow to its closest entrance.</p>
-    <div class="steps">
-      <div class="step"><span class="e">📍</span><div><b>Allow location and motion</b>We use GPS and your compass.</div></div>
-      <div class="step"><span class="e">🔎</span><div><b>Search your building</b>By name or code, like CAB or ETLC.</div></div>
-      <div class="step"><span class="e">📱</span><div><b>Hold your phone flat</b>Walk the way the arrow points.</div></div>
+  <header class="top">
+    <button class="tag" id="filterTag" hidden aria-label="Washrooms only. Tap to show all buildings"><i class="led good"></i>Washrooms only</button>
+    <h1 class="wordmark outlined">Campus Compass</h1>
+    <div class="pill" id="gps" hidden><i class="led"></i><span id="gpsText">Finding GPS</span></div>
+  </header>
+
+  <section class="stage">
+    <div class="radar" id="radar" tabindex="0" role="application"
+         aria-label="Radar. Swipe around to turn the dial, tap to lock on, triple-tap for the nearest washroom. Keyboard: arrow keys turn, Enter locks on, W finds a washroom, R changes range, slash opens search.">
+      <svg id="radarSvg" viewBox="0 0 340 370" aria-hidden="true"></svg>
+      <button class="crown" id="crown" aria-label="Switch on"></button>
     </div>
-    <div class="bottom">
-      <button class="cta primary" id="startBtn">Start</button>
-      <div class="err" id="startErr" role="alert"></div>
-      <div class="fine">iPhone Safari · works outdoors</div>
+
+    <div class="side">
+      <div class="intro" id="intro">
+        <h2 class="outlined">Campus Compass</h2>
+        <p class="hint outlined">Press the button on top to switch on.</p>
+        <p class="fine">We ask for your location and compass once. Works best outdoors.</p>
+        <p class="err" id="startErr" role="alert" hidden></p>
+      </div>
+
+      <div class="card" id="card" hidden aria-live="polite">
+        <p class="kicker" id="kicker" hidden></p>
+        <div class="name-row"><h2 class="name" id="name"></h2><span class="code" id="code" hidden></span></div>
+        <p class="sub" id="sub" hidden></p>
+        <div class="dist-row" id="distRow"><p class="dist"><span id="distNum"></span><small id="distUnit">m</small></p><p class="eta" id="eta"></p></div>
+      </div>
+      <p class="hint outlined" id="hint" hidden></p>
+
+      <button class="search-pill" id="searchBtn" hidden>
+        <svg class="ico" viewBox="0 0 18 18" aria-hidden="true"><circle cx="7" cy="7" r="5.6" fill="none" stroke="#14201B" stroke-width="2.6"/><path d="M11.4 11.4 16 16" stroke="#14201B" stroke-width="2.8" stroke-linecap="round"/></svg>
+        Search buildings
+      </button>
     </div>
   </section>
 
-  <!-- ================= SEARCH: pick a building ================= -->
-  <section class="screen" id="search">
-    <div class="top">
-      <div class="brand">Campus<b>Compass</b></div>
-      <span class="pill" id="gpsPill1"><i></i><span>Finding GPS…</span></span>
-    </div>
-    <div class="searchbox" id="searchbox">
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="8.5" cy="8.5" r="6"/><path d="M13.5 13.5 18 18"/></svg>
-      <input id="q" type="search" inputmode="search" autocomplete="off" autocorrect="off" spellcheck="false"
-             placeholder="Search a building or code" aria-label="Search a building or code">
-      <button class="clear" id="clearBtn" aria-label="Clear search">✕</button>
-    </div>
-    <button class="cta ghost" id="wcBtn">🚻 Nearest washroom</button>
-    <div class="listhead" id="listHead">All buildings</div>
-    <div class="list" id="list"></div>
-    <div class="credit">Map data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a></div>
+  <div class="scrim" id="scrim"></div>
+  <section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Search buildings" aria-hidden="true">
+    <div class="grabber" id="grabber" aria-hidden="true"></div>
+    <label class="field">
+      <svg class="ico" viewBox="0 0 18 18" aria-hidden="true"><circle cx="7" cy="7" r="5.6" fill="none" stroke="#14201B" stroke-width="2.6"/><path d="M11.4 11.4 16 16" stroke="#14201B" stroke-width="2.8" stroke-linecap="round"/></svg>
+      <input id="q" type="search" inputmode="search" enterkeyhint="search" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+             placeholder="Building or code" aria-label="Search a building or code">
+      <button class="clear" id="clearBtn" type="button" aria-label="Clear search" hidden>
+        <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M2 2 12 12M12 2 2 12" stroke="#4E5B54" stroke-width="2.6" stroke-linecap="round"/></svg>
+      </button>
+    </label>
+    <div class="chips"><button class="chip-toggle" id="wcChip" type="button" aria-pressed="false"><i class="led"></i>Washrooms only</button></div>
+    <div class="results" id="results"></div>
+    <p class="credit">Map data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a></p>
   </section>
-
-  <!-- ================= GUIDE: arrow + distance ================= -->
-  <section class="screen" id="guide">
-    <div class="top">
-      <button class="back" id="backBtn" aria-label="Back to search">←</button>
-      <span class="pill" id="gpsPill2"><i></i><span>Finding GPS…</span></span>
-    </div>
 
   <!-- Demo controls: fake a walk without leaving the table (open index.html?demo) -->
-    <aside id="demo">
-    <div class="t"><span>Demo mode</span><span id="demoHead">facing 0°</span></div>
+  <aside class="demo" id="demo" hidden>
+    <span id="demoHead">Facing 0°</span>
     <input id="demoTurn" type="range" min="0" max="359" value="0" aria-label="Direction you face">
-    <div class="b">
-      <button id="demoWalk">▶ Walk</button>
-      <button id="demoAuto">Auto-steer</button>
-      <button id="demoReset">Reset</button>
-    </div>
-    </aside>
-
-    <div class="dest">
-      <div class="k" id="destKind">Guiding to</div>
-      <div class="n"><span id="destName"></span><span class="code" id="destCode"></span></div>
-      <div class="s" id="destSub"></div>
-    </div>
-
-    <div class="stage">
-      <div class="dial">
-        <!-- Compass ring: turns so N always sits at real north -->
-        <svg id="rose" viewBox="0 0 200 200" aria-hidden="true"></svg>
-        <div class="face"></div>
-        <!-- Arrow: points to the entrance (straight up = walk straight ahead) -->
-        <svg id="arrow" viewBox="0 0 200 200" aria-hidden="true">
-          <path d="M100 38 L138 140 L100 120 L62 140 Z" fill="currentColor"/>
-        </svg>
-        <div id="check">✓</div>
-      </div>
-      <div class="toast" id="toast" role="status"></div>
-    </div>
-
-    <div class="sheet">
-      <div class="readout">
-        <div class="dist"><span id="distNum">--</span><small id="distUnit">m</small></div>
-        <div class="eta" id="eta"></div>
-      </div>
-      <div class="hint" id="hint" aria-live="polite"></div>
-      <button class="cta primary" id="doneBtn">Find another building</button>
-    </div>
-  </section>
-
+    <button id="demoWalk" type="button">Walk</button>
+  </aside>
 </main>
 
 <!-- Order matters: state first, then data, then each module, then the UI. -->
@@ -260,6 +284,6 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--lime);outline-o
 <script src="js/angle.js?v=1"></script>
 <script src="js/distance.js?v=1"></script>
 <script src="js/search.js?v=1"></script>
-<script src="js/app.js?v=1"></script>
+<script src="js/app.js?v=2"></script>
 </body>
 </html>
