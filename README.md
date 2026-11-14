@@ -79,14 +79,6 @@ as locking on by hand.
 
 Map data © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright), ODbL.
 
-## Testing
-
-- **Maths, no phone:** `node tools/logic.test.js` (distance, closest door, arrival, search).
-- **Demo mode:** add `?demo` to the address. GPS starts on the Main Quad. A slider turns
-  you, and Walk moves you toward the door you're locked on to. Works on a laptop.
-- **Real test:** open the live link on an iPhone, outside, and walk to a building.
-  The layout is sized for an iPhone 12 Pro Max (428 × 926) and fits smaller phones.
-
 ## Settings worth knowing
 
 | Where | Setting | Meaning |
@@ -107,8 +99,3 @@ GPS doesn't work indoors and the building's steel bends the compass, so we moved
 The old pages are in `archive/commons/`. Module test pages: `Sensors/sensor-test.html`,
 `Angle/test-angle.html`. The first arrow-based interface is in the git history before the
 radar redesign.
-
-## Team rules
-
-`git pull --rebase` before every `git push`. Never `--force`. Bump `?v=N` on a script tag
-when you change that file (GitHub Pages caches JS for 10 minutes).
