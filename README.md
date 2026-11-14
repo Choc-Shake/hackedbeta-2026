@@ -23,7 +23,7 @@ The whole app is the radar. There is one button on screen, for search.
 
 | Do this | What happens |
 |---|---|
-| Press the top button | First press switches the radar on and asks for location and compass. After that, each press changes the range: 50 m, 200 m, 1 km. |
+| Press the top button | First press switches the radar on and asks for location and compass. After that, each press changes the range: 50 m, 200 m, 500 m. |
 | Swipe around the radar | Turns the dial. It clicks once per building, nearest first. Clockwise goes further away. |
 | Tap the radar | Locks on to the selected building's closest door. Tap again to let go. |
 | Triple-tap the radar | Locks on to the closest door of the nearest building with a public washroom. |
@@ -84,7 +84,7 @@ as locking on by hand.
 | `js/distance.js` | `ARRIVE_RADIUS_M = 10` | "You're here" distance. Raise it if GPS is too rough to trigger. |
 | `js/distance.js` | `SWITCH_MARGIN_M = 6` | How much closer another door must be before we switch. |
 | `js/sensors.js` | `MAGNETIC_DECLINATION = 0` | Set to 13 if the radar is consistently about 13° off (magnetic vs true north). |
-| `js/app.js` | `RANGES = [50, 200, 1000]` | Radar range steps for the top button, in metres. |
+| `js/app.js` | `RANGES = [50, 200, 500]` | Radar range steps for the top button, in metres. |
 | `js/app.js` | `STEP_DEG = 22.5` | How far you turn the dial for one building. |
 | `js/app.js` | `TAP_WINDOW_MS = 330` | Taps closer together than this count toward a triple-tap. |
 | `js/location.js` | `FAKE_POSITION` | Fake GPS for desk testing. |

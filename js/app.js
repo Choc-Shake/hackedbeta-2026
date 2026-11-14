@@ -8,7 +8,7 @@
 //   searchBuildings()           js/search.js    filtering the list
 //
 // How the radar is used:
-//   Top button          first press switches on; after that it steps the range 50 m / 200 m / 1 km
+//   Top button          first press switches on; after that it steps the range 50 m / 200 m / 500 m
 //   Swipe around        turns the dial: one click per building, nearest first, wraps around at the ends
 //   Tap the glass       lock on to the selected building (tap again to let go)
 //   Triple-tap          lock on to the closest door of the nearest building with a washroom
@@ -21,8 +21,8 @@
   // ======================================================================
   // SETTINGS
   // ======================================================================
-  const RANGES = [50, 200, 1000];                 // metres from centre to edge of the glass
-  const GRID_CELLS = { 50: 5, 200: 9, 1000: 13 }; // finer grid for a longer range
+  const RANGES = [50, 200, 500];                  // metres from centre to edge of the glass
+  const GRID_CELLS = { 50: 5, 200: 9, 500: 11 }; // finer grid for a longer range
   const STEP_DEG = 22.5;          // how far you turn the dial for one building
   const DETENT_DEG = 7.5;         // spacing of the ring's tick marks (48 around)
   const TAP_WINDOW_MS = 330;      // taps closer together than this count as a double/triple tap
