@@ -87,6 +87,9 @@
   #arrived h2 { margin: 0; font-size: 2rem; }
   @keyframes fadeIn { from { opacity: 0; } }
 
+  #pick { font: inherit; font-size: 1rem; padding: 10px 14px; border-radius: 12px; border: 0;
+          background: #12301c; color: #e8ffe9; margin: 6px 0 2px; max-width: 90vw; }
+  #aheadLabel { font-size: 12px; font-weight: 700; color: #bfe8c6; letter-spacing: .06em; margin: 8px 0 -6px; }
   #debug { margin-top: 12px; font: 12px ui-monospace, monospace; color: #6f9c78; white-space: pre; text-align: left; }
 </style>
 </head>
@@ -101,6 +104,8 @@
 
   <!-- ===== Compass screen ===== -->
   <section id="compassScreen" class="hidden">
+    <select id="pick"></select>
+    <div id="aheadLabel">LINE THE 🚽 UP HERE ▼</div>
     <div id="radar">
       <div id="sweep"></div>
       <div id="aheadMark"></div>
@@ -128,11 +133,11 @@
   </section>
 
   <!-- Team files in the plan's load order (?v= stops the phone using an old cached copy) -->
-  <script src="../js/state.js?v=1"></script>
-  <script src="../js/washrooms.js?v=1"></script>
-  <script src="../js/location.js?v=1"></script>
-  <script src="../js/sensors.js?v=1"></script>
-  <script src="../js/angle.js?v=1"></script>
+  <script src="../js/state.js?v=2"></script>
+  <script src="../js/washrooms.js?v=2"></script>
+  <script src="../js/location.js?v=2"></script>
+  <script src="../js/sensors.js?v=2"></script>
+  <script src="../js/angle.js?v=2"></script>
 
   <script>
     // ============================================================
@@ -149,8 +154,17 @@
       return 2 * R * Math.asin(Math.sqrt(a));
     }
 
+    // Washroom picker: 'auto' = nearest, otherwise an index into WASHROOMS (from js/washrooms.js)
+    let choice = 'auto';
+
     function demoUpdateDistance() {
       if (state.lat === null) return;
+      if (choice !== 'auto') {                       // a specific washroom was chosen
+        state.target = WASHROOMS[choice];
+        state.distance = demoDistanceM(state.lat, state.lon, state.target.lat, state.target.lon);
+        if (state.distance < Math.max(15, (state.accuracy || 0) * 0.8)) state.arrived = true;
+        return;
+      }
       // nearest washroom, with hysteresis: only switch if another is >10 m closer
       let best = null, bestD = Infinity;
       for (const w of WASHROOMS) {
@@ -196,10 +210,23 @@
     const lockBtn = $('lock');
     let shownArrival = false;
 
+    const pick = $('pick');
+    pick.innerHTML = '<option value="auto">🚽 Nearest washroom</option>' +
+      WASHROOMS.map((w, i) => `<option value="${i}">${w.name}</option>`).join('');
+    pick.addEventListener('change', () => {
+      choice = pick.value;
+      skipWashroom = null;
+      state.target = null;
+      state.arrived = false;
+      shownArrival = false;
+    });
+
     $('start').addEventListener('click', async () => {
       // Must all happen inside the tap (iPhone permission rule)
-      const ok = await startSensors();
-      if (!ok && state.sensorError === 'unsupported') startAndroidCompass();
+      await startSensors();
+      // Android/Chrome has 'deviceorientationabsolute'; iPhone Safari doesn't.
+      // (Newer Chrome also has requestPermission, so sensors.js can't tell Android apart.)
+      if ('ondeviceorientationabsolute' in window) startAndroidCompass();
       startLocation();
       keepAwake();
       $('startScreen').classList.add('hidden');
@@ -216,6 +243,8 @@
 
     $('again').addEventListener('click', () => {
       skipWashroom = state.target;
+      choice = 'auto';
+      pick.value = 'auto';
       state.target = null;
       state.arrived = false;
       shownArrival = false;
@@ -225,15 +254,16 @@
 
     function loop() {
       // 1. Distance (team's if it exists, otherwise the demo stand-in)
-      if (typeof updateDistance === 'function') updateDistance(); else demoUpdateDistance();
+      if (typeof updateDistance === 'function' && choice === 'auto') updateDistance();
+      else demoUpdateDistance();
       // 2. Angle (your angle.js)
       updateAngle();
 
-      // 3. Draw the 🚽: angle = relAngle, distance from centre = real distance
+      // 3. Draw the 🚽 on the rim of the radar at relAngle (0 = top = straight ahead)
       const R = radar.clientWidth / 2 - 30;
       if (state.target && state.distance !== null) {
         const a = state.relAngle * Math.PI / 180;
-        const r = R * Math.min(state.distance / RADAR_RANGE_M, 1);
+        const r = R;   // always on the rim: turn until it's at the top, then walk straight
         if (!state.arrived) {
           toilet.style.transform =
             `translate(-50%, -50%) translate(${r * Math.sin(a)}px, ${-r * Math.cos(a)}px)`;
@@ -268,6 +298,7 @@
 
       // 5. Hints, most important first
       let hint = '';
+      if (androidCompass) state.sensorError = null;   // sensors.js's iPhone checks don't apply here
       if (state.sensorError === 'unsupported') hint = 'No compass in this browser. Use Safari (iPhone) or Chrome (Android).';
       else if (state.sensorError === 'denied') hint = 'Motion access denied: close the tab and reopen.';
       else if (state.sensorError) hint = 'Compass problem: ' + state.sensorError;
