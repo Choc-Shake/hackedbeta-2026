@@ -21,7 +21,7 @@ class DirectionsUI:
         self.mid = load_font(14)
         self.small = load_font(11)
 
-        self.state = 'idle'        # idle / menu / navigating / arrived
+        self.state = 'idle'        
         self.prev_state = 'idle'
         self.cursor = 0
         self.arrived_timer = 0
@@ -107,7 +107,7 @@ class DirectionsUI:
             if self.arrived_timer >= ARRIVAL_DISPLAY_TICKS:
                 self.dismiss_arrival()
 
-    # ------------------------------------------------------------ drawing helpers
+    
     def text(self, screen, font, s, x, y, color=UI_TEXT, align='left'):
         surf = font.render(s, False, color)
         w = surf.get_width()
@@ -133,7 +133,7 @@ class DirectionsUI:
     def tri_right(self, screen, cx, cy, s, color):
         pygame.draw.polygon(screen, color, [(cx - s // 2, cy - s), (cx - s // 2, cy + s), (cx + s // 2 + 1, cy)])
 
-    # ------------------------------------------------------------ drawing: ground layer
+    
     def draw_ground(self, screen):
         """Dotted route on the path and a pulsing ring at the door (under the sprites)."""
         if not self.nav.active or not self.nav.polyline:
@@ -162,7 +162,7 @@ class DirectionsUI:
         pygame.draw.circle(screen, UI_DARK, (int(dx), int(dy)), radius + 2, 4)
         pygame.draw.circle(screen, color, (int(dx), int(dy)), radius, 2)
 
-    # ------------------------------------------------------------ drawing: overlay
+    
     def draw_overlay(self, screen):
         self.draw_tags(screen)
         if self.state in ('navigating', 'menu') and self.nav.active:

@@ -71,7 +71,7 @@ def build_legs(route, tilesize):
         else:
             p = legs[i - 1]['dir']
             d = leg['dir']
-            cross = p[0] * d[1] - p[1] * d[0]   # screen coords: y points down
+            cross = p[0] * d[1] - p[1] * d[0]  
             leg['turn'] = 'RIGHT' if cross > 0 else 'LEFT'
     return legs
 
@@ -109,7 +109,7 @@ class Navigator:
 
     def door_tile(self, dest):
         col, row = dest['tile']
-        return (col, row + 1)          # the path tile right in front of the building
+        return (col, row + 1)         
 
     def door_center(self, dest=None):
         return tile_center(self.door_tile(dest or self.target), self.ts)

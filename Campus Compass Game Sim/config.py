@@ -11,21 +11,18 @@ BLUE = (0, 0, 255)
 BLACK = (0, 0, 0)
 FPS = 60
 
-# ---- Player sprite sheet (assets/player_sheet.png) ----
-# 32x32 frames. Each direction uses 2 rows: an idle row (2 frames) and a walk row (6 frames).
-# Format: (idle_row, walk_row)
+
 SHEET_ROWS = {
     'down':  (0, 1),
     'up':    (2, 3),
     'right': (4, 5),
-    'left':  (6, 7),   # if left/right look swapped in-game, swap these two lines
+    'left':  (6, 7),   
 }
 IDLE_FRAMES = 2
 WALK_FRAMES = 6
 FRAME_SIZE = 32
 
-# 8 movement directions -> which row pair of the sheet to draw.
-# The sheet only has 4 facing directions, so diagonals reuse the left/right art.
+# 8 movement directions 
 FACING_TO_SHEET = {
     'down': 'down',
     'up': 'up',
@@ -37,16 +34,16 @@ FACING_TO_SHEET = {
     'down_right': 'right',
 }
 
-WALK_ANIM_TICKS = 5    # game ticks per walk frame (lower = faster)
-IDLE_ANIM_TICKS = 30   # game ticks per idle frame
+WALK_ANIM_TICKS = 5    
+IDLE_ANIM_TICKS = 30   
 
-# Collision box (feet only), so the character can walk behind buildings and trees
+
 HITBOX_W = 14
 HITBOX_H = 10
 
 # ---- Campus Compass: destinations ----
 # 'tile' is the (column, row) of the building on the map (where its digit sits in tilemap).
-# The door is the path tile directly below it.
+
 DESTINATIONS = [
     {'name': 'CAB',             'tile': (3, 4)},
     {'name': 'SUB',             'tile': (9, 4)},
@@ -85,9 +82,9 @@ OBJECTS = {
     'r': 'barrel',
     's': 'sign',
 }
-TREE_SCALE = 0.55            # trees are drawn at this fraction of their image size
-GRASS_VARIANT_CHANCE = 0.12  # how often a grass tile uses a speckled variant
-MAP_SEED = 7                 # change for a different grass/path pattern
+TREE_SCALE = 0.55            
+GRASS_VARIANT_CHANCE = 0.12  
+MAP_SEED = 7                 
 
 tilemap = [
     '....................',

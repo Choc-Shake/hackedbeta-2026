@@ -32,7 +32,7 @@ class Obstacle(pygame.sprite.Sprite):
 
     def __init__(self, game, image, tile_x, tile_y, hit_w, hit_h):
         self.game = game
-        self._layer = (tile_y + 1) * TILESIZE  # lower on screen = drawn in front
+        self._layer = (tile_y + 1) * TILESIZE 
         self.groups = self.game.all_sprites, self.game.blocks
         pygame.sprite.Sprite.__init__(self, self.groups)
 
@@ -154,7 +154,7 @@ class Player(pygame.sprite.Sprite):
 
         self.animate()
         self.sync_rect()
-        # Draw order by feet position so you walk in front of / behind things
+        
         self.game.all_sprites.change_layer(self, self.hitbox.bottom)
 
     def collide_blocks(self, axis, direction):
@@ -174,7 +174,7 @@ class Player(pygame.sprite.Sprite):
                     self.hitbox.top = block.hitbox.bottom
                 self.pos_y = float(self.hitbox.y)
 
-        # Keep the player on the screen
+        
         self.hitbox.clamp_ip(self.screen_rect)
         self.pos_x = float(self.hitbox.x)
         self.pos_y = float(self.hitbox.y)
