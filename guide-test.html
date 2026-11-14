@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Crap Map – guide test</title>
+<style>
+  body { background: #000; color: #eee; font-family: system-ui, sans-serif; margin: 0; padding: 16px; text-align: center; }
+  h1 { font-size: 1.2rem; margin: 0 0 10px; }
+  button, select { font: inherit; font-size: 1rem; padding: 10px 14px; margin: 4px; border-radius: 10px; border: 0; }
+  #start { background: #8B5A2B; color: #fff; }
+  #lock { background: #2B5A8B; color: #fff; }
+  #lock.locked { background: #2E7D4F; }
+  #warn { min-height: 1.4em; color: #ffcc4d; margin: 8px 0; }
+
+  /* Compass ring: 💩 in the middle, 🚽 placed around it by JavaScript */
+  #ring { position: relative; width: min(80vw, 320px); aspect-ratio: 1; margin: 10px auto;
+          border: 3px solid #444; border-radius: 50%; }
+  #you, #toilet { position: absolute; left: 50%; top: 50%; font-size: 48px; line-height: 1;
+                  transform: translate(-50%, -50%); }
+  #north { position: absolute; left: 50%; top: 4px; transform: translateX(-50%); color: #777; font-size: .8rem; }
+
+  #big { font-size: 2.4rem; font-weight: 700; margin: 6px 0 0; }
+  #name { color: #aaa; margin-bottom: 10px; }
+  #info { display: inline-block; text-align: left; font-family: ui-monospace, monospace; font-size: .9rem;
+          white-space: pre; background: #111; padding: 10px 14px; border-radius: 10px; }
+</style>
+</head>
+<body>
+  <h1>💩 Crap Map – guide test</h1>
+  <button id="start" type="button">Start</button>
+  <button id="lock" type="button">Lock north</button><br>
+  <label>Go to: <select id="pick"></select></label>
+
+  <div id="warn"></div>
+
+  <div id="ring">
+    <div id="north">ahead</div>
+    <div id="toilet">🚽</div>
+    <div id="you">💩</div>
+  </div>
+
+  <div id="big">–</div>
+  <div id="name">Tap Start</div>
+  <div id="info"></div>
+
+  <!-- Team files, in the plan's load order. distance.js isn't in the repo yet,
+       so this page picks the nearest washroom itself (pretending to be Distance). -->
+  <script src="js/state.js?v=6"></script>
+  <script src="js/washrooms.js?v=6"></script>
+  <script src="js/location.js?v=6"></script>
+  <script src="js/sensors.js?v=6"></script>
+  <script src="js/angle.js?v=6"></script>
+
+  <script>
+    const ring = document.getElementById('ring');
+    const toilet = document.getElementById('toilet');
+    const pick = document.getElementById('pick');
+    const lockBtn = document.getElementById('lock');
+
+    // ---- Stand-in for Distance (until distance.js exists) ----
+    function testDistanceM(lat1, lon1, lat2, lon2) {
+      const R = 6371000, r = Math.PI / 180;
+      const a = Math.sin((lat2 - lat1) * r / 2) ** 2 +
+        Math.cos(lat1 * r) * Math.cos(lat2 * r) * Math.sin((lon2 - lon1) * r / 2) ** 2;
+      return 2 * R * Math.asin(Math.sqrt(a));
+    }
+
+    // Dropdown: "Nearest" picks automatically, or force a specific washroom
+    pick.innerHTML = '<option value="auto">Nearest (auto)</option>' +
+      WASHROOMS.map((w, i) => `<option value="${i}">${w.name}</option>`).join('');
+
+    function pickTarget() {
+      if (state.lat === null) return;
+      if (pick.value !== 'auto') {
+        state.target = WASHROOMS[pick.value];
+      } else {
+        let best = null, bestD = Infinity;
+        for (const w of WASHROOMS) {
+          const d = testDistanceM(state.lat, state.lon, w.lat, w.lon);
+          if (d < bestD) { best = w; bestD = d; }
+        }
+        state.target = best;
+      }
+      state.distance = testDistanceM(state.lat, state.lon, state.target.lat, state.target.lon);
+      state.arrived = state.distance < Math.max(15, (state.accuracy || 0) * 0.8);
+    }
+
+    // ---- Buttons ----
+    // Start has to run inside a tap: iPhone only asks for compass permission after one.
+    document.getElementById('start').addEventListener('click', async () => {
+      startLocation();
+      await startSensors();
+      document.getElementById('name').textContent = 'Finding you…';
+    });
+
+    // Lock north where the compass is good (outside or at the entrance).
+    // After that, heading comes from the gyroscope, which steel inside can't bend.
+    lockBtn.addEventListener('click', () => {
+      if (lockNorth()) lockBtn.textContent = 'Locked ✓ (tap to re-lock)';
+      else document.getElementById('warn').textContent = 'Tap Start first';
+    });
+
+    // ---- Every frame: pick target, run Angle, draw ----
+    const fmt = (v, digits = 0) => (v === null || v === undefined ? '–' : Number(v).toFixed(digits));
+
+    function loop() {
+      pickTarget();
+      updateAngle();   // from angle.js: sets state.bearing and state.relAngle
+
+      // Place the 🚽 on the ring: angle = relAngle (0 = straight ahead),
+      // distance from centre shrinks as you get closer (60 m or more = on the ring).
+      const ringRadius = ring.clientWidth / 2 - 28;
+      const a = state.relAngle * Math.PI / 180;
+      const r = state.distance === null ? ringRadius : ringRadius * Math.min(state.distance / 60, 1);
+      toilet.style.transform =
+        `translate(-50%, -50%) translate(${r * Math.sin(a)}px, ${-r * Math.cos(a)}px)`;
+
+      // Big text
+      if (state.target && state.distance !== null) {
+        document.getElementById('big').textContent =
+          state.arrived ? 'You have arrived 🧻' : `${Math.round(state.distance)} m`;
+        document.getElementById('name').textContent = state.target.name;
+      }
+
+      // Warnings, most important first
+      lockBtn.classList.toggle('locked', state.locked);
+      let warn = '';
+      if (state.sensorError === 'unsupported') warn = 'Compass needs an iPhone in Safari (sensors.js is iPhone-only for now)';
+      else if (state.sensorError === 'denied') warn = 'Motion access denied: close the tab and reopen';
+      else if (state.sensorError) warn = 'Sensor problem: ' + state.sensorError;
+      else if (state.locationError === 'denied') warn = 'Location blocked: allow it in settings';
+      else if (state.started && !state.locked) warn = 'Tap Lock north where the compass is good (outside or at the door)';
+      else if (state.tilted) warn = 'Hold your phone flat';
+      if (warn || !document.getElementById('warn').textContent.startsWith('Tap Start'))
+        document.getElementById('warn').textContent = warn;
+
+      // Numbers
+      document.getElementById('info').textContent =
+        `lat       ${fmt(state.lat, 6)}\n` +
+        `lon       ${fmt(state.lon, 6)}\n` +
+        `GPS ±     ${fmt(state.accuracy)} m\n` +
+        `heading   ${fmt(state.heading)}°  ${state.locked ? '(gyro, locked)' : '(compass)'}\n` +
+        `compass   ${fmt(sensorDebug.compass)}°  ±${fmt(sensorDebug.accuracy)}°\n` +
+        `bearing   ${fmt(state.bearing)}°  (direction to washroom)\n` +
+        `relAngle  ${fmt(state.relAngle)}°  (0 = straight ahead)\n` +
+        `distance  ${fmt(state.distance)} m`;
+
+      requestAnimationFrame(loop);
+    }
+    loop();
+  </script>
+</body>
+</html>
