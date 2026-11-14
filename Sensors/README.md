@@ -8,15 +8,22 @@ Writes to the shared `state` object (from `js/state.js`):
 
 | Field | Meaning |
 |---|---|
-| `state.heading` | Degrees clockwise from **true north**, 0–360, live. |
+| `state.heading` | Degrees clockwise from **true north**, 0–360, live, smoothed every frame. |
 | `state.locked` | `true` once `lockNorth()` was called; heading is then gyro-based and reliable indoors. |
 | `state.tilted` | `true` when the phone is tilted more than 25° from flat; UI should say "hold your phone flat". |
+| `state.steps` | Walking steps detected since Start. |
+| `state.needsCalibration` | `true` when the compass jumped >45° three times in 3 s; UI says "wave your phone in a figure-8". |
 | `state.started` | `true` after `startSensors()` succeeds. |
 | `state.sensorError` | `null`, `'unsupported'`, `'denied'`, `'nocompass'` or `'failed'`. |
 
 Functions (globals):
 - `startSensors()` → `Promise<boolean>`. **Must be called inside a tap/click handler** (iOS permission rule).
 - `lockNorth()` → `boolean`. Call where the compass is accurate (outside / building entrance).
+- `Sensors.init()` = `startSensors()`. `Sensors.onStep(fn)` → `fn(heading)` on every step.
+  `Sensors.raw` = live raw readings (debug only; also available as `sensorDebug`).
+- Settings at the top of `js/sensors.js`: `FAKE_HEADING` (desk testing), `SMOOTHING`,
+  `STEP_THRESHOLD`, calibration limits.
+- All internals are inside an IIFE, so names like `angleDiff` don't clash with `js/angle.js`.
 
 ## Load order
 ```html
@@ -43,6 +50,8 @@ as unreliable indoors and prompt the user to lock at the entrance.
 - Moved to `js/sensors.js`, uses shared `js/state.js` (added `locked: false` there)
 - Error handling via `state.sensorError`
 - Tilt warning via `state.tilted` (from `beta`/`gamma`, limit 25°)
+- Heading smoothing, step detection (`state.steps`, `Sensors.onStep`), screen wake lock,
+  calibration flag, `FAKE_HEADING` for desk testing
 
 ## Planned (in order)
 5. Auto-lock when compass accuracy is good (≤ ±15°)
@@ -50,7 +59,6 @@ as unreliable indoors and prompt the user to lock at the entrance.
 8. Figure-8 calibration hint when accuracy is poor
 9. Confirm true vs magnetic north (Edmonton declination ≈ 13° E)
 
-Not doing: screen wake lock (skipped).
 
 Shelved: auto-lock. A version that locked when compass accuracy, GPS accuracy and
 compass−gyro steadiness were all good was tried and reverted: indoors near windows it

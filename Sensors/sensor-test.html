@@ -2,31 +2,57 @@
 <html>
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sensor test</title>
+  <style>
+    body { background: black; color: white; font-family: monospace; font-size: 24px; padding: 20px; margin: 0; }
+    button { font-size: 24px; padding: 12px 20px; margin: 0 8px 12px 0; }
+    #arrowBox { width: 200px; height: 200px; margin: 10px auto; position: relative;
+                border: 3px solid #555; border-radius: 50%; }
+    #arrow { position: absolute; left: 50%; top: 10px; width: 0; height: 0;
+             margin-left: -20px; border: 20px solid transparent; border-bottom: 80px solid red;
+             border-top: 0; transform-origin: 20px 90px; }
+    #nLabel { position: absolute; left: 50%; top: -34px; transform: translateX(-50%); color: red; }
+    #out { white-space: pre; line-height: 1.5; }
+    .warn { color: #ff5; }
+  </style>
 </head>
-<body style="background:black; color:white; font-size:24px; font-family:monospace; padding:20px">
-  <button id="start" style="font-size:24px; padding:12px 24px">Start</button>
-  <button id="lock" style="font-size:24px; padding:12px 24px">Lock north</button>
-  <div id="out" style="white-space:pre">tap start</div>
+<body>
+  <button id="start">Start</button>
+  <button id="lock">Lock north</button>
 
-<script src="../js/state.js?v=8"></script>
-<script src="../js/sensors.js?v=8"></script>
+  <!-- Red arrow always points to north (rotates opposite to the phone). -->
+  <div id="arrowBox"><div id="arrow"></div></div>
+
+  <div id="out">tap start</div>
+
+<script src="../js/state.js?v=9"></script>
+<script src="../js/sensors.js?v=9"></script>
 <script>
   // Test page only: plays the role of the UI teammate's code.
   const out = document.getElementById('out');
+  const arrow = document.getElementById('arrow');
+  const r = (x) => (x == null ? '-' : Math.round(x));
 
   document.getElementById('start').addEventListener('click', async () => {
-    const ok = await startSensors();
+    const ok = await Sensors.init();
     if (!ok) { out.textContent = 'error: ' + state.sensorError; return; }
 
     // Redraw 10 times a second from shared state.
     setInterval(() => {
-      const d = sensorDebug;
-      if (state.sensorError) { out.textContent = 'error: ' + state.sensorError; return; }
-      out.textContent =
-        'heading: ' + Math.round(state.heading) +
-        (state.locked ? '  (locked)' : '  (compass ±' + Math.round(d.accuracy) + ')') +
-        '\ncompass: ' + Math.round(d.compass) + '  gyro: ' + Math.round(d.gyro) +
-        (state.tilted ? '\nHOLD YOUR PHONE FLAT' : '');
+      const d = Sensors.raw;
+
+      // Phone turned right by h degrees means north is h degrees to the left.
+      arrow.style.transform = 'rotate(' + (-state.heading) + 'deg)';
+
+      out.innerHTML =
+        'smoothed: ' + r(state.heading) + '°' + (state.locked ? '  (locked)' : '') +
+        '\nraw:      ' + r(d.heading) + '°' +
+        '\ncompass:  ' + r(d.compass) + '° ±' + r(d.accuracy) +
+        '\naccel:    ' + (d.accel == null ? '-' : d.accel.toFixed(1)) + ' m/s²' +
+        '\nsteps:    ' + state.steps +
+        '\nerror:    ' + (state.sensorError || 'none') +
+        '\ncalib:    ' + (state.needsCalibration ? '<span class="warn">WAVE PHONE IN A FIGURE-8</span>' : 'ok') +
+        (state.tilted ? '\n<span class="warn">HOLD YOUR PHONE FLAT</span>' : '');
     }, 100);
   });
 
