@@ -217,7 +217,7 @@ class DirectionsUI:
 
     def draw_arrival(self, screen):
         ticks = pygame.time.get_ticks()
-        r = self.panel_rect(120, 400, 64)
+        r = self.panel_rect(236, 398, 64)
         self.box(screen, r)
         name = self.nav.target['name'] if self.nav.target else ''
         self.text(screen, self.font, f"You have arrived at {name}!", r.centerx, r.y + 13,
