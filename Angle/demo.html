@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CrapMap Compass – demo</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: #05140b; color: #e8ffe9; text-align: center;
+    font-family: system-ui, -apple-system, sans-serif;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 100dvh; padding: 16px; overflow: hidden;
+  }
+  h1 { margin: 0 0 4px; font-size: 2.2rem; letter-spacing: .02em; }
+  .sub { color: #8fbf98; margin: 0 0 20px; }
+  button {
+    font: inherit; font-weight: 700; border: 0; border-radius: 14px;
+    padding: 14px 26px; font-size: 1.15rem; cursor: pointer;
+  }
+  .primary { background: #3ddc6b; color: #05140b; }
+  .ghost { background: #12301c; color: #bfe8c6; font-size: .95rem; padding: 10px 16px; }
+  .ghost.locked { background: #3ddc6b; color: #05140b; }
+  .hidden { display: none !important; }
+
+  /* ---------- Radar ---------- */
+  #radar {
+    position: relative; width: min(84vw, 62vh, 380px); aspect-ratio: 1; margin: 14px auto;
+    border-radius: 50%;
+    background:
+      radial-gradient(circle at 35% 30%, rgba(255,255,255,.25), transparent 40%),
+      repeating-linear-gradient(0deg, transparent 0 11.5%, rgba(0,60,20,.55) 11.5% 12.5%),
+      repeating-linear-gradient(90deg, transparent 0 11.5%, rgba(0,60,20,.55) 11.5% 12.5%),
+      radial-gradient(circle, #5cf07e, #20a845 70%, #0f6b2a);
+    border: 10px solid #1d3b25;
+    box-shadow: 0 0 0 3px #3a6b47, 0 10px 40px rgba(0,0,0,.6), inset 0 0 40px rgba(0,0,0,.45);
+    overflow: hidden;
+    transition: box-shadow .3s;
+  }
+  #radar.ahead { box-shadow: 0 0 0 3px #b6ffc6, 0 0 40px #3ddc6b, inset 0 0 40px rgba(0,0,0,.45); }
+  /* rotating sweep line */
+  #sweep {
+    position: absolute; inset: 0; border-radius: 50%;
+    background: conic-gradient(from 0deg, rgba(255,255,255,.28), transparent 18%);
+    animation: spin 3s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #aheadMark {
+    position: absolute; left: 50%; top: 4px; transform: translateX(-50%);
+    width: 0; height: 0; border: 9px solid transparent; border-bottom: 14px solid #e8ffe9;
+    opacity: .85;
+  }
+  #accuracy {
+    position: absolute; left: 50%; top: 50%; border-radius: 50%;
+    background: rgba(255,255,255,.12); border: 2px dashed rgba(255,255,255,.45);
+    transform: translate(-50%, -50%); width: 0; height: 0;
+  }
+  .icon {
+    position: absolute; left: 50%; top: 50%; line-height: 1;
+    transform: translate(-50%, -50%);
+    filter: drop-shadow(0 3px 4px rgba(0,0,0,.45));
+  }
+  #you { font-size: 54px; z-index: 2; }
+  #toilet { font-size: 44px; z-index: 3; }
+  #toilet.pulse { animation: pulse 1s ease-in-out infinite; }
+  @keyframes pulse { 50% { filter: drop-shadow(0 0 12px #fff); } }
+
+  #big { font-size: 2.6rem; font-weight: 800; color: #3ddc6b; margin-top: 4px; }
+  #name { color: #bfe8c6; font-size: 1.05rem; min-height: 1.3em; }
+  #hint { color: #ffd166; min-height: 1.3em; margin: 8px 0; max-width: 360px; font-size: .95rem; }
+  #acc { color: #8fbf98; font-size: .85rem; }
+  .row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 10px; }
+
+  /* ---------- Arrival ---------- */
+  #toilet.flush { animation: flush 1.5s ease-in forwards; }
+  @keyframes flush {
+    0%   { transform: translate(-50%, -50%) rotate(0) scale(1); opacity: 1; }
+    100% { transform: translate(-50%, -50%) rotate(1080deg) scale(0); opacity: 0; }
+  }
+  #arrived {
+    position: fixed; inset: 0; background: rgba(5, 20, 11, .94);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+    z-index: 10; animation: fadeIn .4s;
+  }
+  #arrived .emoji { font-size: 90px; }
+  #arrived h2 { margin: 0; font-size: 2rem; }
+  @keyframes fadeIn { from { opacity: 0; } }
+
+  #debug { margin-top: 12px; font: 12px ui-monospace, monospace; color: #6f9c78; white-space: pre; text-align: left; }
+</style>
+</head>
+<body>
+
+  <!-- ===== Start screen ===== -->
+  <section id="startScreen">
+    <h1>💩 CrapMap</h1>
+    <p class="sub">Points you to the nearest washroom</p>
+    <button id="start" class="primary">💩 Start</button>
+  </section>
+
+  <!-- ===== Compass screen ===== -->
+  <section id="compassScreen" class="hidden">
+    <div id="radar">
+      <div id="sweep"></div>
+      <div id="aheadMark"></div>
+      <div id="accuracy"></div>
+      <div id="you" class="icon">💩</div>
+      <div id="toilet" class="icon">🚽</div>
+    </div>
+    <div id="big">–</div>
+    <div id="name">Finding you…</div>
+    <div id="acc"></div>
+    <div id="hint"></div>
+    <div class="row">
+      <button id="lock" class="ghost">🧭 Lock north</button>
+      <button id="debugBtn" class="ghost">Numbers</button>
+    </div>
+    <div id="debug" class="hidden"></div>
+  </section>
+
+  <!-- ===== Arrived overlay ===== -->
+  <section id="arrived" class="hidden">
+    <div class="emoji">🧻</div>
+    <h2>You have arrived</h2>
+    <div id="arrivedName" style="color:#bfe8c6"></div>
+    <button id="again" class="primary">Find another</button>
+  </section>
+
+  <!-- Team files in the plan's load order (?v= stops the phone using an old cached copy) -->
+  <script src="../js/state.js?v=1"></script>
+  <script src="../js/washrooms.js?v=1"></script>
+  <script src="../js/location.js?v=1"></script>
+  <script src="../js/sensors.js?v=1"></script>
+  <script src="../js/angle.js?v=1"></script>
+
+  <script>
+    // ============================================================
+    // DEMO ONLY: stand-ins for parts of the app that aren't in the repo yet.
+    // When js/distance.js exists, its updateDistance() is used instead.
+    // ============================================================
+    const RADAR_RANGE_M = 60;
+    let skipWashroom = null;   // set by "Find another"   // 60 m or more = 🚽 sits on the edge of the radar
+
+    function demoDistanceM(lat1, lon1, lat2, lon2) {   // haversine
+      const R = 6371000, r = Math.PI / 180;
+      const a = Math.sin((lat2 - lat1) * r / 2) ** 2 +
+        Math.cos(lat1 * r) * Math.cos(lat2 * r) * Math.sin((lon2 - lon1) * r / 2) ** 2;
+      return 2 * R * Math.asin(Math.sqrt(a));
+    }
+
+    function demoUpdateDistance() {
+      if (state.lat === null) return;
+      // nearest washroom, with hysteresis: only switch if another is >10 m closer
+      let best = null, bestD = Infinity;
+      for (const w of WASHROOMS) {
+        if (w === skipWashroom && WASHROOMS.length > 1) continue;   // "Find another" skips the last one
+        const d = demoDistanceM(state.lat, state.lon, w.lat, w.lon);
+        if (d < bestD) { best = w; bestD = d; }
+      }
+      if (state.target) {
+        const curD = demoDistanceM(state.lat, state.lon, state.target.lat, state.target.lon);
+        if (best !== state.target && curD - bestD < 10) { best = state.target; bestD = curD; }
+      }
+      state.target = best;
+      state.distance = bestD;
+      // arrive (latched until "Find another")
+      if (bestD < Math.max(15, (state.accuracy || 0) * 0.8)) state.arrived = true;
+    }
+
+    // Android: sensors.js is iPhone-only for now, so read the compass here.
+    let androidCompass = false;
+    function startAndroidCompass() {
+      if (!('ondeviceorientationabsolute' in window)) return false;
+      window.addEventListener('deviceorientationabsolute', (e) => {
+        if (e.alpha === null) return;
+        state.heading = (360 - e.alpha) % 360;
+        state.tilted = Math.abs(e.beta) > 35 || Math.abs(e.gamma) > 35;
+      });
+      androidCompass = true;
+      state.sensorError = null;
+      state.started = true;
+      return true;
+    }
+
+    // Keep the screen awake during the demo (ignored if unsupported)
+    async function keepAwake() {
+      try { if ('wakeLock' in navigator) await navigator.wakeLock.request('screen'); } catch (e) {}
+    }
+
+    // ============================================================
+    // UI
+    // ============================================================
+    const $ = (id) => document.getElementById(id);
+    const radar = $('radar'), toilet = $('toilet'), accuracyRing = $('accuracy');
+    const lockBtn = $('lock');
+    let shownArrival = false;
+
+    $('start').addEventListener('click', async () => {
+      // Must all happen inside the tap (iPhone permission rule)
+      const ok = await startSensors();
+      if (!ok && state.sensorError === 'unsupported') startAndroidCompass();
+      startLocation();
+      keepAwake();
+      $('startScreen').classList.add('hidden');
+      $('compassScreen').classList.remove('hidden');
+      if (androidCompass) lockBtn.classList.add('hidden');   // lock north is iPhone-only
+      requestAnimationFrame(loop);
+    });
+
+    lockBtn.addEventListener('click', () => {
+      if (lockNorth()) lockBtn.textContent = '🧭 Locked ✓';
+    });
+
+    $('debugBtn').addEventListener('click', () => $('debug').classList.toggle('hidden'));
+
+    $('again').addEventListener('click', () => {
+      skipWashroom = state.target;
+      state.target = null;
+      state.arrived = false;
+      shownArrival = false;
+      $('arrived').classList.add('hidden');
+      toilet.classList.remove('flush');
+    });
+
+    function loop() {
+      // 1. Distance (team's if it exists, otherwise the demo stand-in)
+      if (typeof updateDistance === 'function') updateDistance(); else demoUpdateDistance();
+      // 2. Angle (your angle.js)
+      updateAngle();
+
+      // 3. Draw the 🚽: angle = relAngle, distance from centre = real distance
+      const R = radar.clientWidth / 2 - 30;
+      if (state.target && state.distance !== null) {
+        const a = state.relAngle * Math.PI / 180;
+        const r = R * Math.min(state.distance / RADAR_RANGE_M, 1);
+        if (!state.arrived) {
+          toilet.style.transform =
+            `translate(-50%, -50%) translate(${r * Math.sin(a)}px, ${-r * Math.cos(a)}px)`;
+        }
+        $('big').textContent = Math.round(state.distance) + ' m';
+        $('name').textContent = state.target.name;
+
+        // "straight ahead" feedback
+        const ahead = Math.abs(state.relAngle) < 15;
+        radar.classList.toggle('ahead', ahead);
+        toilet.classList.toggle('pulse', ahead);
+      }
+
+      // GPS accuracy circle around 💩, on the same scale as the radar
+      if (state.accuracy !== null) {
+        const d = 2 * R * Math.min(state.accuracy / RADAR_RANGE_M, 1);
+        accuracyRing.style.width = accuracyRing.style.height = d + 'px';
+        $('acc').textContent = '± ' + Math.round(state.accuracy) + ' m';
+      }
+
+      // 4. Arrival: flush, then overlay
+      if (state.arrived && !shownArrival) {
+        shownArrival = true;
+        toilet.style.transform = '';
+        toilet.classList.add('flush');
+        if (navigator.vibrate) navigator.vibrate([100, 50, 300]);
+        setTimeout(() => {
+          $('arrivedName').textContent = state.target ? state.target.name : '';
+          $('arrived').classList.remove('hidden');
+        }, 1500);
+      }
+
+      // 5. Hints, most important first
+      let hint = '';
+      if (state.sensorError === 'unsupported') hint = 'No compass in this browser. Use Safari (iPhone) or Chrome (Android).';
+      else if (state.sensorError === 'denied') hint = 'Motion access denied: close the tab and reopen.';
+      else if (state.sensorError) hint = 'Compass problem: ' + state.sensorError;
+      else if (state.locationError === 'denied') hint = 'Location blocked: allow it in your settings.';
+      else if (state.lat === null) hint = 'Finding you… (works best near a window)';
+      else if (state.tilted) hint = 'Hold your phone flat';
+      else if (!androidCompass && !state.locked) hint = 'Tap Lock north at the entrance, where the compass is accurate';
+      else if (Math.abs(state.relAngle) < 15) hint = 'Straight ahead. Walk! 🏃';
+      else hint = state.relAngle > 0 ? 'Turn right ↻' : 'Turn left ↺';
+      $('hint').textContent = hint;
+
+      lockBtn.classList.toggle('locked', state.locked);
+
+      const f = (v, n = 0) => (v === null || v === undefined ? '–' : Number(v).toFixed(n));
+      $('debug').textContent =
+        `lat ${f(state.lat, 6)}  lon ${f(state.lon, 6)}\n` +
+        `GPS ±${f(state.accuracy)} m   heading ${f(state.heading)}° ${androidCompass ? '(android)' : state.locked ? '(locked)' : '(compass)'}\n` +
+        `bearing ${f(state.bearing)}°   relAngle ${f(state.relAngle)}°   dist ${f(state.distance)} m\n` +
+        `distance.js: ${typeof updateDistance === 'function' ? 'team' : 'demo stand-in'}`;
+
+      requestAnimationFrame(loop);
+    }
+  </script>
+</body>
+</html>
