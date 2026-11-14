@@ -133,11 +133,11 @@
   </section>
 
   <!-- Team files in the plan's load order (?v= stops the phone using an old cached copy) -->
-  <script src="../js/state.js?v=2"></script>
-  <script src="../js/washrooms.js?v=2"></script>
-  <script src="../js/location.js?v=2"></script>
-  <script src="../js/sensors.js?v=2"></script>
-  <script src="../js/angle.js?v=2"></script>
+  <script src="../js/state.js?v=3"></script>
+  <script src="../js/washrooms.js?v=3"></script>
+  <script src="../js/location.js?v=3"></script>
+  <script src="../js/sensors.js?v=3"></script>
+  <script src="../js/angle.js?v=3"></script>
 
   <script>
     // ============================================================
@@ -183,17 +183,53 @@
     }
 
     // Android: sensors.js is iPhone-only for now, so read the compass here.
+    // Same idea as Sensors' iPhone code: the compass (magnetometer) gives true direction but
+    // gets bent by steel indoors; the gyroscope is steady indoors but starts at a random zero.
+    // "Lock north" records the gap between them once, where the compass is good.
     let androidCompass = false;
+    const android = { compass: null, gyro: null, offset: null, compassEvents: 0, gyroEvents: 0, startedAt: 0 };
+    const demoWrap360 = (a) => ((a % 360) + 360) % 360;
+
+    function androidHeading() {
+      if (android.offset !== null && android.gyro !== null) {
+        state.heading = demoWrap360(android.gyro + android.offset);   // locked: gyro + offset
+        state.locked = true;
+      } else if (android.compass !== null) {
+        state.heading = android.compass;                          // not locked: raw compass
+        state.locked = false;
+      }
+    }
+
     function startAndroidCompass() {
-      if (!('ondeviceorientationabsolute' in window)) return false;
+      // Compass: absolute orientation (relative to the Earth)
       window.addEventListener('deviceorientationabsolute', (e) => {
         if (e.alpha === null) return;
-        state.heading = (360 - e.alpha) % 360;
+        android.compassEvents++;
+        android.compass = demoWrap360(360 - e.alpha);
         state.tilted = Math.abs(e.beta) > 35 || Math.abs(e.gamma) > 35;
+        androidHeading();
+      });
+      // Gyro: on Chrome Android, plain 'deviceorientation' is relative (gyro-based)
+      window.addEventListener('deviceorientation', (e) => {
+        if (e.alpha === null) return;
+        if (e.absolute) {                       // some phones send the compass here instead
+          if (android.compassEvents === 0) { android.compass = demoWrap360(360 - e.alpha); androidHeading(); }
+          return;
+        }
+        android.gyroEvents++;
+        android.gyro = demoWrap360(360 - e.alpha);
+        androidHeading();
       });
       androidCompass = true;
+      android.startedAt = performance.now();
       state.sensorError = null;
       state.started = true;
+    }
+
+    function androidLockNorth() {
+      if (android.compass === null || android.gyro === null) return false;
+      android.offset = android.compass - android.gyro;
+      androidHeading();
       return true;
     }
 
@@ -231,12 +267,12 @@
       keepAwake();
       $('startScreen').classList.add('hidden');
       $('compassScreen').classList.remove('hidden');
-      if (androidCompass) lockBtn.classList.add('hidden');   // lock north is iPhone-only
       requestAnimationFrame(loop);
     });
 
     lockBtn.addEventListener('click', () => {
-      if (lockNorth()) lockBtn.textContent = '🧭 Locked ✓';
+      const ok = androidCompass ? androidLockNorth() : lockNorth();
+      lockBtn.textContent = ok ? '🧭 Locked ✓ (tap to re-lock)' : '🧭 No compass yet';
     });
 
     $('debugBtn').addEventListener('click', () => $('debug').classList.toggle('hidden'));
@@ -303,9 +339,12 @@
       else if (state.sensorError === 'denied') hint = 'Motion access denied: close the tab and reopen.';
       else if (state.sensorError) hint = 'Compass problem: ' + state.sensorError;
       else if (state.locationError === 'denied') hint = 'Location blocked: allow it in your settings.';
+      else if (androidCompass && android.compassEvents === 0 && android.gyroEvents === 0 &&
+               performance.now() - android.startedAt > 3000)
+        hint = 'No compass data. In Chrome: ⋮ → Settings → Site settings → Motion sensors → Allow, then reload.';
       else if (state.lat === null) hint = 'Finding you… (works best near a window)';
       else if (state.tilted) hint = 'Hold your phone flat';
-      else if (!androidCompass && !state.locked) hint = 'Tap Lock north at the entrance, where the compass is accurate';
+      else if (!state.locked) hint = 'Tap Lock north at the entrance, where the compass is accurate';
       else if (Math.abs(state.relAngle) < 15) hint = 'Straight ahead. Walk! 🏃';
       else hint = state.relAngle > 0 ? 'Turn right ↻' : 'Turn left ↺';
       $('hint').textContent = hint;
@@ -315,7 +354,10 @@
       const f = (v, n = 0) => (v === null || v === undefined ? '–' : Number(v).toFixed(n));
       $('debug').textContent =
         `lat ${f(state.lat, 6)}  lon ${f(state.lon, 6)}\n` +
-        `GPS ±${f(state.accuracy)} m   heading ${f(state.heading)}° ${androidCompass ? '(android)' : state.locked ? '(locked)' : '(compass)'}\n` +
+        `GPS ±${f(state.accuracy)} m   heading ${f(state.heading)}° ${state.locked ? '(locked)' : '(compass)'}\n` +
+        (androidCompass
+          ? `android compass ${f(android.compass)}° (${android.compassEvents} readings)  gyro ${f(android.gyro)}° (${android.gyroEvents})\n`
+          : `iphone compass ${f(sensorDebug.compass)}° ±${f(sensorDebug.accuracy)}°\n`) +
         `bearing ${f(state.bearing)}°   relAngle ${f(state.relAngle)}°   dist ${f(state.distance)} m\n` +
         `distance.js: ${typeof updateDistance === 'function' ? 'team' : 'demo stand-in'}`;
 
