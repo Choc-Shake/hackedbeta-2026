@@ -154,11 +154,11 @@
   </section>
 
   <!-- Team files in the plan's load order (?v= stops the phone using an old cached copy) -->
-  <script src="../js/state.js?v=4"></script>
-  <script src="../js/washrooms.js?v=4"></script>
-  <script src="../js/location.js?v=4"></script>
-  <script src="../js/sensors.js?v=4"></script>
-  <script src="../js/angle.js?v=4"></script>
+  <script src="../js/state.js?v=5"></script>
+  <script src="../js/washrooms.js?v=5"></script>
+  <script src="../js/location.js?v=5"></script>
+  <script src="../js/sensors.js?v=5"></script>
+  <script src="../js/angle.js?v=5"></script>
 
   <script>
     // =================================================================
@@ -168,8 +168,7 @@
     const $ = (id) => document.getElementById(id);
     const demoWrap360 = (a) => ((a % 360) + 360) % 360;
     const RADAR_RANGE_M = 60;       // accuracy circle scale: 60 m = edge of radar
-    const GPS_SMOOTHING = 0.2;      // move 20% toward each new GPS reading
-    const GPS_MAX_ACCURACY = 35;    // ignore readings worse than this once we have a fix
+    const STEP_LENGTH_M = 0.7;      // one walking step
 
     // ---------- Screens ----------
     function show(id) {
@@ -218,26 +217,61 @@
       }
     }
 
-    // ---------- GPS smoothing ----------
-    // location.js writes every raw reading into state.lat/lon. Indoors those jump
-    // around by 10-30 m, which swings the direction to a washroom 40 m away.
-    // Here we average them, drop bad ones, and can freeze the position entirely.
-    let smooth = null;
-    let gpsFrozen = false;
-    function smoothGPS() {
+    // ---------- Position: GPS + step counting ----------
+    // location.js writes every raw GPS reading into state.lat/lon. Indoors those
+    // jump 10-30 m and only arrive every few seconds, so on their own they can't
+    // see you walk 10 m. So we keep our own position estimate (pos):
+    //   * each STEP moves pos 0.7 m in the direction the phone faces
+    //   * each GPS reading pulls pos toward it: a lot if accurate, a little if not
+    let pos = null;                 // { lat, lon } — our best guess, written into state
+    let gpsFrozen = false;          // true = ignore GPS, move by steps only
+    const gps = { raw: null, at: 0, count: 0 };
+    let steps = 0;
+
+    function gpsWeight(accuracy) {  // ±10 m → 0.69, ±20 m → 0.36, ±35 m → 0.16, ±60 m → 0.06
+      return 1 / (1 + ((accuracy || 30) / 15) ** 2);
+    }
+
+    function fusePosition() {
       if (state.lat === null) return;
-      const isNewReading = !smooth || state.lat !== smooth.lat || state.lon !== smooth.lon;
-      if (!isNewReading) return;
-      if (smooth && (gpsFrozen || (state.accuracy || 0) > GPS_MAX_ACCURACY)) {
-        state.lat = smooth.lat; state.lon = smooth.lon;            // ignore this reading
-        return;
+      const isNewReading = !pos || state.lat !== pos.lat || state.lon !== pos.lon;
+      if (isNewReading) {
+        gps.raw = { lat: state.lat, lon: state.lon, acc: state.accuracy };
+        gps.at = performance.now();
+        gps.count++;
+        if (!pos) pos = { lat: state.lat, lon: state.lon };      // first fix: start here
+        else if (!gpsFrozen) {
+          const k = gpsWeight(state.accuracy);
+          pos.lat += (gps.raw.lat - pos.lat) * k;
+          pos.lon += (gps.raw.lon - pos.lon) * k;
+        }
       }
-      if (!smooth) smooth = { lat: state.lat, lon: state.lon };
-      else {
-        smooth.lat += (state.lat - smooth.lat) * GPS_SMOOTHING;
-        smooth.lon += (state.lon - smooth.lon) * GPS_SMOOTHING;
+      state.lat = pos.lat; state.lon = pos.lon;
+    }
+
+    function onStep() {
+      steps++;
+      if (!pos || northOffset === null) return;   // need a position and a locked heading
+      const h = state.heading * Math.PI / 180;
+      pos.lat += (STEP_LENGTH_M * Math.cos(h)) / 111320;
+      pos.lon += (STEP_LENGTH_M * Math.sin(h)) / (111320 * Math.cos(pos.lat * Math.PI / 180));
+      state.lat = pos.lat; state.lon = pos.lon;
+    }
+
+    // Step detection: walking makes the phone bounce. Smooth the total acceleration
+    // and count a step each time it rises above gravity + 1.4 (at most one per 0.3 s).
+    let accSmooth = 9.8, stepArmed = true, lastStepAt = 0;
+    function onMotion(e) {
+      const a = e.accelerationIncludingGravity;
+      if (!a || a.x === null) return;
+      const mag = Math.sqrt(a.x * a.x + a.y * a.y + a.z * a.z);
+      accSmooth = accSmooth * 0.5 + mag * 0.5;
+      const now = performance.now();
+      if (stepArmed && accSmooth > 11.2 && now - lastStepAt > 300) {
+        stepArmed = false; lastStepAt = now; onStep();
+      } else if (accSmooth < 10.3) {
+        stepArmed = true;
       }
-      state.lat = smooth.lat; state.lon = smooth.lon;
     }
 
     // ---------- Distance stand-in (until js/distance.js exists) ----------
@@ -274,6 +308,11 @@
     // ---------- Buttons ----------
     $('start').addEventListener('click', async () => {
       await startSensors();               // iPhone permission (must be inside the tap)
+      try {                               // iPhone also needs a separate OK for motion (steps)
+        if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function')
+          await DeviceMotionEvent.requestPermission();
+      } catch (e) {}
+      window.addEventListener('devicemotion', onMotion);
       if (isAndroid) startAndroidSensors();
       startLocation();
       if ('wakeLock' in navigator) navigator.wakeLock.request('screen').catch(() => {});
@@ -293,7 +332,7 @@
     $('freeze').addEventListener('click', () => {
       gpsFrozen = !gpsFrozen;
       $('freeze').classList.toggle('on', gpsFrozen);
-      $('freeze').textContent = gpsFrozen ? '📍 GPS frozen' : '📍 Freeze GPS';
+      $('freeze').textContent = gpsFrozen ? '📍 GPS off (steps only)' : '📍 Freeze GPS';
     });
     $('debugBtn').addEventListener('click', () => $('debug').classList.toggle('hidden'));
 
@@ -320,7 +359,7 @@
 
     function loop() {
       updateHeading();
-      smoothGPS();
+      fusePosition();
       if (typeof updateDistance === 'function' && choice === 'auto') updateDistance();
       else demoUpdateDistance();
       updateAngle();   // Angle (js/angle.js): sets state.bearing and state.relAngle
@@ -366,12 +405,16 @@
         : 'No compass data yet (iPhone: use Safari and allow Motion access).';
       else if (state.lat === null) hint = 'Finding you… (works best near a window)';
       else if (state.tilted) hint = 'Hold your phone flat';
+      else if (gpsFrozen && Math.abs(state.relAngle) < 15) hint = 'Straight ahead. Walk! (GPS off: tracking your steps) 🏃';
       else if (Math.abs(state.relAngle) < 15) hint = 'Straight ahead. Walk! 🏃';
       else hint = state.relAngle > 0 ? 'Turn right ↻' : 'Turn left ↺';
       $('hint').textContent = hint;
 
       $('debug').textContent =
-        `GPS raw→smoothed ${f(state.lat, 6)}, ${f(state.lon, 6)}  ±${f(state.accuracy)} m\n` +
+        `position ${f(state.lat, 6)}, ${f(state.lon, 6)}\n` +
+        `GPS raw ${gps.raw ? f(gps.raw.lat, 6) + ', ' + f(gps.raw.lon, 6) : '–'}  ±${f(state.accuracy)} m  ` +
+        `(${gps.count} readings, last ${gps.at ? ((performance.now() - gps.at) / 1000).toFixed(0) + ' s ago' : '–'})${gpsFrozen ? ' IGNORED' : ''}\n` +
+        `steps ${steps}  (each moves you ${STEP_LENGTH_M} m the way you face)\n` +
         `compass ${f(compassNow())}°  gyro ${f(gyroNow())}°  offset ${f(northOffset)}°\n` +
         (isAndroid ? `readings: compass ${android.compassEvents}, gyro ${android.gyroEvents}\n` : '') +
         `heading ${f(state.heading)}°  bearing ${f(state.bearing)}°  relAngle ${f(state.relAngle)}°\n` +
