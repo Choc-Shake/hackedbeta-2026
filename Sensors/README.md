@@ -1,4 +1,8 @@
-# Sensors — status for teammates (and their AI assistants)
+# Sensors — status for teammates
+
+**Project is now Campus Compass (outdoors).** See the root `README.md`. Outdoors the plain
+compass is accurate, so the app does not show Lock north; `lockNorth()` still exists.
+New setting: `MAGNETIC_DECLINATION` in `js/sensors.js` (see Planned).
 
 Owner: Ishaan (Sensors). Code: `js/sensors.js`. Test page: `Sensors/sensor-test.html`.
 iPhone Safari only for now.
@@ -28,7 +32,7 @@ Functions (globals):
 ## Load order
 ```html
 <script src="js/state.js"></script>
-<script src="js/washrooms.js"></script>
+<script src="js/buildings.js"></script>
 <script src="js/location.js"></script>
 <script src="js/sensors.js"></script>
 ```
@@ -53,18 +57,16 @@ as unreliable indoors and prompt the user to lock at the entrance.
 - Heading smoothing, step detection (`state.steps`, `Sensors.onStep`), screen wake lock,
   calibration flag, `FAKE_HEADING` for desk testing
 
-## Planned (in order)
-5. Auto-lock when compass accuracy is good (≤ ±15°)
-6. Drift handling: re-lock quietly when compass is good again
-8. Figure-8 calibration hint when accuracy is poor
-9. Confirm true vs magnetic north (Edmonton declination ≈ 13° E)
-
+## Planned
+- Confirm true vs magnetic north on a north-south road. If the heading reads ~347 when
+  facing true north, set `MAGNETIC_DECLINATION = 13` in `js/sensors.js`.
 
 Shelved: auto-lock. A version that locked when compass accuracy, GPS accuracy and
 compass−gyro steadiness were all good was tried and reverted: indoors near windows it
 passed all checks while standing still and locked to the wrong north. Possible future fix:
 require the user to turn ~45° and check compass and gyro turn by the same amount.
-For now the user taps Lock north at the entrance.
+That was for the old indoor idea; outdoors no lock is needed.
+
 ## Notes
 - `sensorDebug` (global) holds raw compass/gyro/accuracy/offset for test pages only; not shared state.
 - Bump `?v=N` on script tags after changes; GitHub Pages caches JS for 10 minutes.

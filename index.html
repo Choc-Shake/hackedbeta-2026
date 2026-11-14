@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#07110b">
+<title>Campus Compass</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&display=swap" rel="stylesheet">
+<style>
+/* ------------------------------------------------------------------
+   Campus Compass. Three screens inside .app, one shown at a time:
+   #start (permissions) -> #search (pick a building) -> #guide (arrow)
+   ------------------------------------------------------------------ */
+:root{
+  --bg:#07110b; --bg2:#0c1a12; --surface:#102017; --surface2:#16301f;
+  --line:rgba(160,255,170,.12); --line2:rgba(160,255,170,.22);
+  --txt:#eaf7ec; --mut:#93b39d; --dim:#688573;
+  --lime:#7dff5c; --lime2:#3fdc2f;
+  --amber:#ffcc4d; --red:#ff7b6e;
+  --font:"Bricolage Grotesque",ui-rounded,system-ui,-apple-system,sans-serif;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%}
+body{background:#030805;color:var(--txt);font-family:var(--font);
+  -webkit-font-smoothing:antialiased;overscroll-behavior:none}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;padding:0}
+button:focus-visible,input:focus-visible{outline:2px solid var(--lime);outline-offset:2px}
+
+.app{position:relative;max-width:440px;height:100dvh;margin:0 auto;overflow:hidden;
+  background:radial-gradient(600px 380px at 50% 30%,rgba(125,255,92,.09),transparent 70%),
+             linear-gradient(180deg,var(--bg2),var(--bg))}
+.screen{position:absolute;inset:0;display:none;flex-direction:column;
+  padding:calc(env(safe-area-inset-top) + 14px) 18px calc(env(safe-area-inset-bottom) + 14px)}
+.screen.show{display:flex}
+
+/* ---------- shared pieces ---------- */
+.cta{width:100%;min-height:56px;border-radius:17px;font-size:18px;font-weight:800;
+  display:flex;align-items:center;justify-content:center;gap:9px;transition:transform .12s}
+.cta:active{transform:scale(.98)}
+.cta.primary{background:linear-gradient(180deg,#9bff7e,var(--lime2));color:#06260b;
+  box-shadow:0 8px 24px rgba(125,255,92,.25),inset 0 1px 0 rgba(255,255,255,.5)}
+.cta.ghost{background:var(--surface2);box-shadow:inset 0 0 0 1px var(--line2)}
+.cta:disabled{opacity:.45}
+.pill{display:inline-flex;align-items:center;gap:7px;padding:7px 11px;border-radius:99px;
+  font-size:13px;font-weight:700;background:var(--surface);box-shadow:inset 0 0 0 1px var(--line);
+  color:var(--mut);white-space:nowrap}
+.pill i{width:8px;height:8px;border-radius:50%;background:var(--dim)}
+.pill.good i{background:var(--lime);box-shadow:0 0 8px var(--lime)}
+.pill.weak i{background:var(--amber);box-shadow:0 0 8px var(--amber)}
+.pill.bad i{background:var(--red)}
+.code{font-size:12px;font-weight:800;letter-spacing:.5px;padding:3px 7px;border-radius:7px;
+  background:rgba(125,255,92,.12);color:var(--lime);white-space:nowrap}
+
+/* ---------- start screen ---------- */
+#start{align-items:center;text-align:center;padding-left:28px;padding-right:28px}
+#start .logo{margin-top:9dvh;width:104px;height:104px}
+#start h1{font-size:42px;margin:18px 0 8px;letter-spacing:-1.6px;font-weight:800;line-height:1}
+#start h1 b{color:var(--lime)}
+#start p{margin:0;color:var(--mut);font-size:17px;line-height:1.45;max-width:300px}
+.steps{margin:26px 0 0;display:grid;gap:10px;width:100%;text-align:left}
+.step{display:flex;gap:12px;align-items:center;padding:12px 14px;border-radius:16px;
+  background:var(--surface);box-shadow:inset 0 0 0 1px var(--line);font-size:14px;color:var(--mut)}
+.step b{color:var(--txt);display:block;font-size:16px}
+.step .e{font-size:22px;width:30px;text-align:center}
+#start .bottom{margin-top:auto;width:100%}
+.err{margin-top:10px;font-size:14px;color:var(--red);min-height:18px;line-height:1.4}
+.err a{color:var(--lime);font-weight:700}
+.fine{margin-top:8px;font-size:12px;color:var(--dim)}
+
+/* ---------- search screen ---------- */
+.top{display:flex;align-items:center;justify-content:space-between;gap:10px;flex:none}
+.brand{font-weight:800;font-size:22px;letter-spacing:-.6px}
+.brand b{color:var(--lime)}
+.searchbox{position:relative;margin-top:14px;flex:none}
+.searchbox input{width:100%;height:54px;border-radius:16px;border:0;padding:0 44px 0 46px;
+  font:600 17px var(--font);color:var(--txt);background:var(--surface);
+  box-shadow:inset 0 0 0 1px var(--line2);-webkit-appearance:none;appearance:none}
+.searchbox input::placeholder{color:var(--dim)}
+.searchbox input::-webkit-search-cancel-button{display:none}
+.searchbox svg{position:absolute;left:16px;top:17px;color:var(--mut)}
+.searchbox .clear{position:absolute;right:6px;top:6px;width:42px;height:42px;border-radius:12px;
+  color:var(--mut);font-size:20px;display:none}
+.searchbox.has .clear{display:block}
+#wcBtn{margin-top:10px;flex:none;min-height:52px;font-size:16px}
+.listhead{margin:16px 2px 6px;font-size:12px;font-weight:800;letter-spacing:1.1px;
+  text-transform:uppercase;color:var(--dim);flex:none}
+.list{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;margin:0 -6px;padding:0 6px 8px}
+.row{width:100%;display:flex;align-items:center;gap:10px;padding:13px 12px;text-align:left;
+  min-height:56px}
+.row + .row{box-shadow:0 -1px 0 var(--line)}
+.row:active{background:var(--surface2)}
+.row .n{flex:1;min-width:0;font-size:16px;font-weight:700;line-height:1.25}
+.row .n small{display:block;font-size:12px;font-weight:500;color:var(--dim);margin-top:2px}
+.row .d{font-size:14px;font-weight:700;color:var(--mut);white-space:nowrap;font-variant-numeric:tabular-nums}
+.empty{padding:28px 10px;text-align:center;color:var(--mut);font-size:15px;line-height:1.5}
+.credit{flex:none;padding-top:8px;font-size:11px;color:var(--dim);text-align:center}
+.credit a{color:var(--mut)}
+
+/* ---------- guide screen ---------- */
+.back{width:44px;height:44px;border-radius:14px;background:var(--surface);
+  box-shadow:inset 0 0 0 1px var(--line);font-size:20px;display:grid;place-items:center}
+.dest{margin-top:12px;padding:13px 15px;border-radius:18px;flex:none;
+  background:linear-gradient(180deg,var(--surface2),var(--surface));box-shadow:inset 0 0 0 1px var(--line)}
+.dest .k{font-size:11px;letter-spacing:1.2px;text-transform:uppercase;color:var(--dim);font-weight:800}
+.dest .n{display:flex;align-items:center;gap:8px;margin-top:2px;font-size:19px;font-weight:800;
+  letter-spacing:-.3px;line-height:1.2}
+.dest .s{margin-top:4px;font-size:13px;color:var(--mut)}
+.dest .s.note{color:var(--amber)}
+
+.stage{flex:1;min-height:0;display:grid;place-items:center;position:relative}
+.dial{position:relative;width:min(100%,46dvh,330px);aspect-ratio:1}
+.dial svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+#rose{transform-origin:50% 50%;will-change:transform}
+#arrow{transform-origin:50% 50%;will-change:transform;color:var(--lime);
+  filter:drop-shadow(0 6px 14px rgba(0,0,0,.5));transition:color .2s,opacity .2s}
+.oncourse #arrow{filter:drop-shadow(0 0 22px rgba(125,255,92,.75))}
+.waiting #arrow{opacity:.25}
+.dial .face{position:absolute;inset:9%;border-radius:50%;
+  background:radial-gradient(circle at 50% 40%,#1b3a26,#0d1d14 70%);
+  box-shadow:inset 0 0 0 1px var(--line2),0 20px 50px rgba(0,0,0,.5)}
+.oncourse .dial .face{box-shadow:inset 0 0 0 2px rgba(125,255,92,.6),0 0 60px rgba(125,255,92,.18)}
+#check{display:none;position:absolute;inset:0;place-items:center;font-size:110px;color:var(--lime);font-weight:800}
+.arrived #check{display:grid}
+.arrived #arrow{display:none}
+.arrived .dial .face{box-shadow:inset 0 0 0 3px var(--lime),0 0 80px rgba(125,255,92,.3);
+  animation:pulse 1.2s ease-in-out infinite alternate}
+@keyframes pulse{to{transform:scale(1.03)}}
+
+.toast{position:absolute;left:50%;bottom:4px;transform:translateX(-50%);max-width:100%;
+  padding:10px 14px;border-radius:14px;font-size:14px;font-weight:700;text-align:center;
+  background:rgba(34,27,6,.95);color:var(--amber);box-shadow:inset 0 0 0 1px rgba(255,204,77,.35);
+  opacity:0;pointer-events:none;transition:opacity .2s}
+.toast.show{opacity:1}
+
+.sheet{flex:none;padding:16px 18px;border-radius:26px;
+  background:linear-gradient(180deg,rgba(22,44,30,.95),rgba(14,30,20,.98));
+  box-shadow:inset 0 0 0 1px var(--line)}
+.dist{font-weight:800;font-size:60px;line-height:.9;letter-spacing:-2.5px;font-variant-numeric:tabular-nums}
+.dist small{font-size:22px;letter-spacing:0;color:var(--mut);margin-left:5px;font-weight:700}
+.readout{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+.eta{font-size:14px;font-weight:700;color:var(--mut);text-align:right;padding-bottom:4px}
+.hint{margin-top:10px;font-size:17px;font-weight:700;color:var(--txt);min-height:22px}
+.arrived .dist,.arrived .hint{color:var(--lime)}
+#doneBtn{display:none;margin-top:12px}
+.arrived #doneBtn{display:flex}
+
+/* ---------- demo controls (only with ?demo in the address) ---------- */
+#demo{display:none;flex:none;margin-top:10px;
+  padding:10px 12px;border-radius:16px;background:rgba(8,16,11,.94);
+  box-shadow:inset 0 0 0 1px rgba(255,204,77,.4);font-size:13px;color:var(--mut)}
+.demo #demo{display:block}
+#demo .t{display:flex;justify-content:space-between;font-weight:800;color:var(--amber);font-size:12px;
+  letter-spacing:.8px;text-transform:uppercase}
+#demo input[type=range]{width:100%;accent-color:var(--lime);margin:8px 0 6px}
+#demo .b{display:flex;gap:8px}
+#demo .b button{flex:1;min-height:40px;border-radius:11px;background:var(--surface2);
+  box-shadow:inset 0 0 0 1px var(--line2);font-weight:700;font-size:14px}
+#demo .b button.on{background:var(--lime);color:#06260b}
+@media (prefers-reduced-motion:reduce){.arrived .dial .face{animation:none}}
+</style>
+</head>
+<body>
+
+<main class="app" id="app">
+
+  <!-- ================= START: the tap here asks for compass + location ================= -->
+  <section class="screen show" id="start">
+    <svg class="logo" viewBox="0 0 100 100" aria-hidden="true">
+      <circle cx="50" cy="50" r="46" fill="#102017" stroke="rgba(160,255,170,.25)" stroke-width="2"/>
+      <path d="M50 14 L72 74 L50 62 L28 74 Z" fill="#7dff5c"/>
+    </svg>
+    <h1>Campus<b>Compass</b></h1>
+    <p>Pick a UAlberta building. Follow the arrow to its closest entrance.</p>
+    <div class="steps">
+      <div class="step"><span class="e">📍</span><div><b>Allow location and motion</b>We use GPS and your compass.</div></div>
+      <div class="step"><span class="e">🔎</span><div><b>Search your building</b>By name or code, like CAB or ETLC.</div></div>
+      <div class="step"><span class="e">📱</span><div><b>Hold your phone flat</b>Walk the way the arrow points.</div></div>
+    </div>
+    <div class="bottom">
+      <button class="cta primary" id="startBtn">Start</button>
+      <div class="err" id="startErr" role="alert"></div>
+      <div class="fine">iPhone Safari · works outdoors</div>
+    </div>
+  </section>
+
+  <!-- ================= SEARCH: pick a building ================= -->
+  <section class="screen" id="search">
+    <div class="top">
+      <div class="brand">Campus<b>Compass</b></div>
+      <span class="pill" id="gpsPill1"><i></i><span>Finding GPS…</span></span>
+    </div>
+    <div class="searchbox" id="searchbox">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="8.5" cy="8.5" r="6"/><path d="M13.5 13.5 18 18"/></svg>
+      <input id="q" type="search" inputmode="search" autocomplete="off" autocorrect="off" spellcheck="false"
+             placeholder="Search a building or code" aria-label="Search a building or code">
+      <button class="clear" id="clearBtn" aria-label="Clear search">✕</button>
+    </div>
+    <button class="cta ghost" id="wcBtn">🚻 Nearest washroom</button>
+    <div class="listhead" id="listHead">All buildings</div>
+    <div class="list" id="list"></div>
+    <div class="credit">Map data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a></div>
+  </section>
+
+  <!-- ================= GUIDE: arrow + distance ================= -->
+  <section class="screen" id="guide">
+    <div class="top">
+      <button class="back" id="backBtn" aria-label="Back to search">←</button>
+      <span class="pill" id="gpsPill2"><i></i><span>Finding GPS…</span></span>
+    </div>
+
+  <!-- Demo controls: fake a walk without leaving the table (open index.html?demo) -->
+    <aside id="demo">
+    <div class="t"><span>Demo mode</span><span id="demoHead">facing 0°</span></div>
+    <input id="demoTurn" type="range" min="0" max="359" value="0" aria-label="Direction you face">
+    <div class="b">
+      <button id="demoWalk">▶ Walk</button>
+      <button id="demoAuto">Auto-steer</button>
+      <button id="demoReset">Reset</button>
+    </div>
+    </aside>
+
+    <div class="dest">
+      <div class="k" id="destKind">Guiding to</div>
+      <div class="n"><span id="destName"></span><span class="code" id="destCode"></span></div>
+      <div class="s" id="destSub"></div>
+    </div>
+
+    <div class="stage">
+      <div class="dial">
+        <!-- Compass ring: turns so N always sits at real north -->
+        <svg id="rose" viewBox="0 0 200 200" aria-hidden="true"></svg>
+        <div class="face"></div>
+        <!-- Arrow: points to the entrance (straight up = walk straight ahead) -->
+        <svg id="arrow" viewBox="0 0 200 200" aria-hidden="true">
+          <path d="M100 38 L138 140 L100 120 L62 140 Z" fill="currentColor"/>
+        </svg>
+        <div id="check">✓</div>
+      </div>
+      <div class="toast" id="toast" role="status"></div>
+    </div>
+
+    <div class="sheet">
+      <div class="readout">
+        <div class="dist"><span id="distNum">--</span><small id="distUnit">m</small></div>
+        <div class="eta" id="eta"></div>
+      </div>
+      <div class="hint" id="hint" aria-live="polite"></div>
+      <button class="cta primary" id="doneBtn">Find another building</button>
+    </div>
+  </section>
+
+</main>
+
+<!-- Order matters: state first, then data, then each module, then the UI. -->
+<script src="js/state.js?v=1"></script>
+<script src="js/buildings.js?v=1"></script>
+<script src="js/location.js?v=1"></script>
+<script src="js/sensors.js?v=10"></script>
+<script src="js/angle.js?v=1"></script>
+<script src="js/distance.js?v=1"></script>
+<script src="js/search.js?v=1"></script>
+<script src="js/app.js?v=1"></script>
+</body>
+</html>

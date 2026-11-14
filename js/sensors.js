@@ -45,6 +45,12 @@
   const CAL_JUMPS = 3;
   const CAL_WINDOW_MS = 3000;
 
+  // Added to every compass reading. The bearing to a building is measured from
+  // TRUE north; if the iPhone reports MAGNETIC north, set this to Edmonton's
+  // declination (about 13). Test: stand on a north-south road, point the phone
+  // along it; if it reads ~347 instead of 0, set this to 13.
+  const MAGNETIC_DECLINATION = 0;
+
   const NO_COMPASS_MS = 3000;     // flag 'nocompass' if no reading by then
   const MAX_TILT = 25;            // degrees from flat before state.tilted = true
 
@@ -95,7 +101,7 @@
     // Ignore events with no compass/gyro data, so heading never becomes NaN.
     if (e.webkitCompassHeading == null || e.alpha == null) return;
 
-    const compass = e.webkitCompassHeading;
+    const compass = wrap360(e.webkitCompassHeading + MAGNETIC_DECLINATION);
     const gyro = 360 - e.alpha;   // alpha grows anticlockwise; flip to clockwise like a compass
 
     // Calibration check: count big sudden compass jumps in the last 3 s.
