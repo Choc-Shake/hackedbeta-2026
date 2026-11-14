@@ -77,8 +77,6 @@ as locking on by hand.
 - `washroom: true` is hand-picked. Please double-check it, since the triple-tap relies on it.
 - Codes come from OpenStreetMap plus a few we added.
 
-Map data © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright), ODbL.
-
 ## Settings worth knowing
 
 | Where | Setting | Meaning |
