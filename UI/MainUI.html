@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CampMap</title>
+
+<style>
+:root{
+    --green:#0F5C4E;
+    --gold:#F2C94C;
+    --cream:#F6F0DF;
+    --card:#FFFFFF;
+    --sweep:rgba(242,201,76,.65);
+}
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:Arial,sans-serif;
+}
+
+body{
+    background:var(--cream);
+    color:var(--green);
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    padding:20px;
+    transition:.3s;
+}
+
+.app{
+    max-width:430px;
+    width:100%;
+}
+
+/* HEADER */
+
+.header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:15px;
+}
+
+.logo{
+    font-size:2rem;
+    font-weight:800;
+}
+
+/* HAMBURGER */
+
+.menu{
+    width:52px;
+    height:52px;
+
+    border:none;
+    border-radius:12px;
+
+    background:transparent;
+
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+    gap:6px;
+
+    cursor:pointer;
+
+    transition:
+        background .25s ease,
+        transform .15s ease;
+}
+
+.menu span{
+    width:28px;
+    height:3px;
+
+    background:var(--green);
+
+    border-radius:999px;
+
+    transition:.3s;
+}
+
+.menu:hover{
+    background:var(--green);
+}
+
+.menu:hover span{
+    background:var(--card);
+}
+
+.menu:active{
+    transform:scale(.90);
+}
+
+.menu.active{
+    background:var(--green);
+}
+
+.menu.active span{
+    background:var(--card);
+}
+
+.menu.active span:nth-child(1){
+    transform:translateY(9px) rotate(45deg);
+}
+
+.menu.active span:nth-child(2){
+    opacity:0;
+}
+
+.menu.active span:nth-child(3){
+    transform:translateY(-9px) rotate(-45deg);
+}
+
+/* DROPDOWN */
+
+.dropdown{
+    max-height:0;
+    overflow:hidden;
+
+    background:var(--card);
+
+    border:3px solid var(--green);
+
+    border-radius:20px;
+
+    margin-bottom:20px;
+
+    padding:0 15px;
+
+    transition:.35s;
+}
+
+.dropdown.open{
+    max-height:500px;
+    padding:15px;
+}
+
+.dropdown h3{
+    margin-bottom:10px;
+    color:var(--green);
+}
+
+.dropdown button{
+    width:100%;
+
+    padding:12px;
+
+    margin-bottom:8px;
+
+    border:none;
+
+    border-radius:12px;
+
+    background:transparent;
+
+    color:var(--green);
+
+    font-size:1rem;
+    font-weight:700;
+
+    text-align:left;
+
+    cursor:pointer;
+
+    transition:.2s;
+}
+
+.dropdown button:hover{
+    background:var(--green);
+    color:var(--card);
+    transform:translateX(4px);
+}
+
+.dropdown button:active{
+    transform:
+        translateX(4px)
+        scale(.96);
+}
+
+.dropdown button.active{
+    background:var(--green);
+    color:var(--card);
+}
+
+/* CARDS */
+
+.card,
+.footer{
+    background:var(--card);
+
+    border:3px solid var(--green);
+
+    border-radius:20px;
+
+    padding:18px;
+
+    transition:.3s;
+}
+
+.label{
+    opacity:.7;
+}
+
+.location{
+    margin-top:6px;
+
+    font-size:1.2rem;
+    font-weight:700;
+}
+
+.distance{
+    margin-top:10px;
+
+    font-size:2.7rem;
+    font-weight:900;
+
+    color:var(--gold);
+}
+
+/* RADAR */
+
+.radar-wrap{
+    display:flex;
+    justify-content:center;
+    margin:25px 0;
+}
+
+.radar{
+    width:300px;
+    height:300px;
+
+    border-radius:50%;
+
+    overflow:hidden;
+
+    position:relative;
+
+    border:6px solid var(--green);
+
+    background:
+    repeating-radial-gradient(
+        circle,
+        rgba(15,92,78,.12) 0 2px,
+        transparent 2px 34px
+    );
+}
+
+.sweep{
+    position:absolute;
+    inset:0;
+
+    background:
+    linear-gradient(
+        130deg,
+        transparent,
+        var(--sweep),
+        transparent
+    );
+
+    animation:spin 4s linear infinite;
+}
+
+@keyframes spin{
+    from{
+        transform:rotate(0deg);
+    }
+    to{
+        transform:rotate(360deg);
+    }
+}
+
+.v{
+    position:absolute;
+    left:50%;
+    width:2px;
+    height:100%;
+    background:rgba(15,92,78,.2);
+}
+
+.h{
+    position:absolute;
+    top:50%;
+    height:2px;
+    width:100%;
+    background:rgba(15,92,78,.2);
+}
+
+.toilet{
+    position:absolute;
+
+    left:50%;
+    top:12%;
+
+    transform:translateX(-50%);
+
+    font-size:56px;
+
+    filter:
+        drop-shadow(
+            0 0 12px var(--gold)
+        );
+
+    animation:pulse 1.8s infinite;
+}
+
+@keyframes pulse{
+    0%,100%{
+        transform:translateX(-50%) scale(1);
+    }
+
+    50%{
+        transform:translateX(-50%) scale(1.12);
+    }
+}
+
+.poop{
+    position:absolute;
+
+    left:50%;
+    top:50%;
+
+    transform:translate(-50%,-50%);
+
+    font-size:90px;
+}
+
+/* FOOTER */
+
+.footer{
+    text-align:center;
+}
+
+.footer p{
+    margin-top:6px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="app">
+
+    <div class="header">
+
+        <div class="logo">
+            🧭 CampMap
+        </div>
+
+        <button class="menu" id="menu">
+            <span></span>
+            <span></span>
+            <span></span>
+        </button>
+
+    </div>
+
+    <div class="dropdown" id="dropdown">
+
+        <h3>🎨 Select Theme</h3>
+
+        <button id="randomTheme">
+            🎲 Randomize Colors
+        </button>
+
+        <button data-theme="uofa" class="active">
+            🟢 UAlberta
+        </button>
+
+        <button data-theme="dark">
+            ⚫ Dark Radar
+        </button>
+
+        <button data-theme="matrix">
+            💻 Matrix
+        </button>
+
+        <button data-theme="retro">
+            🟡 Retro Radar
+        </button>
+
+        <button data-theme="ocean">
+            🌊 Ocean
+        </button>
+
+    </div>
+
+    <div class="card">
+
+        <div class="label">
+            Nearest Washroom
+        </div>
+
+        <div class="location">
+            UCommons Main Hallway
+        </div>
+
+        <div class="distance">
+            12 m
+        </div>
+
+    </div>
+
+    <div class="radar-wrap">
+
+        <div class="radar">
+
+            <div class="sweep"></div>
+
+            <div class="v"></div>
+            <div class="h"></div>
+
+            <div class="toilet">
+                🚽
+            </div>
+
+            <div class="poop">
+                💩
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="footer">
+        <strong>Nearest Washroom Located</strong>
+        <p>
+            Follow the highlighted toilet icon on the radar.
+        </p>
+        <p>
+          Keep your phone flat for accurate mapping
+        </p>
+    </div>
+
+</div>
+
+<script>
+const menu = document.getElementById("menu");
+const dropdown = document.getElementById("dropdown");
+
+menu.addEventListener("click", () => {
+    menu.classList.toggle("active");
+    dropdown.classList.toggle("open");
+});
+
+function setTheme(theme){
+
+    const root = document.documentElement.style;
+
+    if(theme === "uofa"){
+        root.setProperty("--green","#0F5C4E");
+        root.setProperty("--gold","#F2C94C");
+        root.setProperty("--cream","#F6F0DF");
+        root.setProperty("--card","#FFFFFF");
+        root.setProperty("--sweep","rgba(242,201,76,.65)");
+    }
+
+    if(theme === "dark"){
+        root.setProperty("--green","#22C55E");
+        root.setProperty("--gold","#FACC15");
+        root.setProperty("--cream","#020617");
+        root.setProperty("--card","#111827");
+        root.setProperty("--sweep","rgba(34,197,94,.75)");
+    }
+
+    if(theme === "matrix"){
+        root.setProperty("--green","#00FF66");
+        root.setProperty("--gold","#00FF66");
+        root.setProperty("--cream","#000000");
+        root.setProperty("--card","#000000");
+        root.setProperty("--sweep","rgba(0,255,102,.85)");
+    }
+
+    if(theme === "retro"){
+        root.setProperty("--green","#8B4513");
+        root.setProperty("--gold","#FFD700");
+        root.setProperty("--cream","#FDF6E3");
+        root.setProperty("--card","#FFFDF5");
+        root.setProperty("--sweep","rgba(255,215,0,.75)");
+    }
+
+    if(theme === "ocean"){
+        root.setProperty("--green","#0284C7");
+        root.setProperty("--gold","#67E8F9");
+        root.setProperty("--cream","#E0F2FE");
+        root.setProperty("--card","#FFFFFF");
+        root.setProperty("--sweep","rgba(103,232,249,.85)");
+    }
+}
+
+document.querySelectorAll("[data-theme]").forEach(btn => {
+
+    btn.addEventListener("click", () => {
+
+        document
+            .querySelectorAll("[data-theme]")
+            .forEach(b => b.classList.remove("active"));
+
+        btn.classList.add("active");
+
+        setTheme(btn.dataset.theme);
+    });
+
+});
+
+document.getElementById("randomTheme")
+.addEventListener("click", () => {
+
+    document
+    .querySelectorAll("[data-theme]")
+    .forEach(b => b.classList.remove("active"));
+
+    const hue =
+        Math.floor(Math.random() * 360);
+
+    const root =
+        document.documentElement.style;
+
+    root.setProperty(
+        "--green",
+        `hsl(${hue},70%,40%)`
+    );
+
+    root.setProperty(
+        "--gold",
+        `hsl(${(hue+60)%360},90%,60%)`
+    );
+
+    root.setProperty(
+        "--cream",
+        `hsl(${hue},35%,92%)`
+    );
+
+    root.setProperty(
+        "--card",
+        "#FFFFFF"
+    );
+
+    root.setProperty(
+        "--sweep",
+        `hsla(${(hue+60)%360},90%,60%,.8)`
+    );
+
+});
+</script>
+
+</body>
+</html>
